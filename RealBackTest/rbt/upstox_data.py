@@ -146,6 +146,10 @@ class Cache:
     def __init__(self, path=C.CACHE_DB):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(path))
+        # WAL mode: survives crashes and power loss mid-write; each chunk
+        # commit is atomic so a network drop never leaves a partial row.
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA synchronous=NORMAL")  # safe + fast
         self.conn.executescript(SCHEMA)
 
     # -- chunk bookkeeping ----------------------------------------------------

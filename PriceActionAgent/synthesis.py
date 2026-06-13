@@ -258,6 +258,14 @@ def _dry_run_result(symbol: str) -> dict:
     }
 
 
+def _is_complete_synthesis(parsed: dict) -> bool:
+    """True only when trade_decision contains a valid action."""
+    td = parsed.get("trade_decision")
+    if not isinstance(td, dict):
+        return False
+    return td.get("action") in ("BUY", "SELL", "NO_TRADE")
+
+
 def _parse_json(text: str, symbol: str, stage: str) -> dict:
     """
     Extract and parse JSON from model response.
@@ -284,7 +292,11 @@ def _parse_json(text: str, symbol: str, stage: str) -> dict:
 
     # Step 1 — direct parse
     try:
-        return json.loads(cleaned)
+        parsed = json.loads(cleaned)
+        if _is_complete_synthesis(parsed):
+            return parsed
+        log.warning("%s [%s]: direct parse incomplete (no trade_decision) — continuing recovery",
+                    symbol, stage)
     except json.JSONDecodeError:
         pass
 
@@ -294,7 +306,12 @@ def _parse_json(text: str, symbol: str, stage: str) -> dict:
             l for l in cleaned.split("\n") if not l.strip().startswith("```")
         ).strip()
         try:
-            return json.loads(no_fence)
+            parsed = json.loads(no_fence)
+            if _is_complete_synthesis(parsed):
+                return parsed
+            log.warning("%s [%s]: fenced parse incomplete — continuing recovery",
+                        symbol, stage)
+            cleaned = no_fence
         except json.JSONDecodeError:
             cleaned = no_fence  # use de-fenced version for subsequent steps
 
@@ -304,7 +321,11 @@ def _parse_json(text: str, symbol: str, stage: str) -> dict:
     candidate = cleaned[start: end + 1] if (start != -1 and end > start) else cleaned[start:] if start != -1 else cleaned
     if start != -1:
         try:
-            return json.loads(candidate)
+            parsed = json.loads(candidate)
+            if _is_complete_synthesis(parsed):
+                return parsed
+            log.warning("%s [%s]: sliced parse incomplete — trying json_repair",
+                        symbol, stage)
         except json.JSONDecodeError as e:
             log.warning("%s [%s]: standard JSON parse failed (%s) — trying json_repair",
                         symbol, stage, e)
@@ -316,8 +337,14 @@ def _parse_json(text: str, symbol: str, stage: str) -> dict:
             from json_repair import repair_json
             repaired = repair_json(candidate, return_objects=True)
             if isinstance(repaired, dict) and repaired:
-                log.info("%s [%s]: json_repair succeeded", symbol, stage)
-                return repaired
+                if _is_complete_synthesis(repaired):
+                    log.info("%s [%s]: json_repair succeeded", symbol, stage)
+                    return repaired
+                log.warning(
+                    "%s [%s]: json_repair fixed JSON but trade_decision is missing "
+                    "(response likely truncated) — trying regex fallback",
+                    symbol, stage,
+                )
         except Exception as re_err:
             log.warning("%s [%s]: json_repair failed: %s", symbol, stage, re_err)
 
@@ -343,6 +370,17 @@ def _parse_json(text: str, symbol: str, stage: str) -> dict:
         "next_plan": next_plan,
     }
     result["data_integrity_check"] = "PARSE_ERROR — regex fallback used; verify trade_decision"
+    # Preserve any partial structure json_repair recovered (e.g. claim_registry)
+    if start != -1:
+        try:
+            from json_repair import repair_json
+            partial = repair_json(candidate, return_objects=True)
+            if isinstance(partial, dict):
+                for key in ("claim_registry", "pass1_audit", "trend_status", "final_narrative"):
+                    if key in partial and partial[key] and key not in result:
+                        result[key] = partial[key]
+        except Exception:
+            pass
     return result
 
 
@@ -431,11 +469,11 @@ def synthesize_symbol(
                  window_start=window_start, window_end=window_end,
                  next_td=next_td, synthesis=synthesis)
 
-        td = synthesis.get("trade_decision", {})
+        td = synthesis.get("trade_decision") or {}
         log.info(
             "%s: DONE ✓  action=%s  entry=%s  target=%s  stop=%s  next=%s",
             symbol,
-            td.get("action", "?"),
+            td.get("action") or "NO_TRADE",
             td.get("entry"), td.get("target"), td.get("stop_loss"),
             next_td,
         )
@@ -462,7 +500,7 @@ def _persist(
         if isinstance(raw_narrative, dict) else str(raw_narrative)
     )
 
-    td        = synthesis.get("trade_decision", {})
+    td        = synthesis.get("trade_decision") or {}
     action    = td.get("action", "NO_TRADE")
     setup     = td.get("setup", "NO_TRADE")
     entry     = td.get("entry")
@@ -650,9 +688,9 @@ def run_batch_synthesis(
             _persist(symbol=symbol, store=store, anchors=state["anchors"],
                      window_start=state["window_start"], window_end=state["window_end"],
                      next_td=state["next_td"], synthesis=synthesis)
-            td = synthesis.get("trade_decision", {})
+            td = synthesis.get("trade_decision") or {}
             log.info("%s: DONE ✓ [batch]  action=%s  entry=%s  target=%s  stop=%s",
-                     symbol, td.get("action", "?"),
+                     symbol, td.get("action") or "NO_TRADE",
                      td.get("entry"), td.get("target"), td.get("stop_loss"))
             results["success"].append(symbol)
         except Exception as e:

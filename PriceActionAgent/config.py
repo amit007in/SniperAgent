@@ -104,9 +104,8 @@ SEED_USE_EXTENDED_THINKING = os.environ.get(
     "PA_SEED_THINKING", "true"
 ).lower() == "true"
 
-SEED_THINKING_BUDGET = int(os.environ.get("PA_SEED_THINKING_BUDGET", "8000"))
-
-SEED_MAX_TOKENS    = int(os.environ.get("PA_SEED_MAX_TOKENS",  "8192"))
+SEED_THINKING_BUDGET = int(os.environ.get("PA_SEED_THINKING_BUDGET", "10000"))
+SEED_MAX_TOKENS    = int(os.environ.get("PA_SEED_MAX_TOKENS",  "16384"))
 DAILY_MAX_TOKENS   = int(os.environ.get("PA_DAILY_MAX_TOKENS", "2048"))
 
 # Temperature: tight anchoring to data — keep low

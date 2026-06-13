@@ -265,8 +265,9 @@ def candles_to_csv(candles: list[Candle], max_rows: int | None = None) -> str:
 
 def get_symbol_data_window(
     symbol: str,
-    seed_months: int = 6,
+    seed_months: int = 4,
     end_date: datetime.date | None = None,
+    rolling_days: int | None = None,
 ) -> tuple[
     list[Candle],   # daily
     list[Candle],   # weekly
@@ -276,13 +277,19 @@ def get_symbol_data_window(
     datetime.date,  # actual end date
 ]:
     """
-    Load all timeframe data for a symbol over the seed window.
+    Load all timeframe data for a symbol over the rolling window.
+    rolling_days (trading days) takes priority over seed_months if provided.
     Returns daily, weekly, 4H candles + anchor metrics + actual date range.
     """
     if end_date is None:
         end_date = datetime.date.today() - datetime.timedelta(days=1)
 
-    start_date = end_date - datetime.timedelta(days=seed_months * 30)
+    if rolling_days is not None:
+        # Convert trading days to calendar days with 1.45x buffer (accounts for weekends/holidays)
+        calendar_days = int(rolling_days * 1.45)
+        start_date = end_date - datetime.timedelta(days=calendar_days)
+    else:
+        start_date = end_date - datetime.timedelta(days=seed_months * 30)
 
     daily  = load_daily_candles(symbol, start_date, end_date)
     weekly = load_weekly_candles(symbol, start_date, end_date)
@@ -393,6 +400,56 @@ def get_rolling_context(
     prior_4h_ctx = prior_4h[-(ROLLING_4H_DAYS * 2):]
 
     return prior_daily_ctx, prior_weekly_ctx, prior_4h_ctx
+
+
+# Known Nifty 50 symbol variants stored by different Upstox fetch pipelines
+_NIFTY_SYMBOL_VARIANTS = [
+    "NIFTY 50",
+    "Nifty 50",
+    "NIFTY50",
+    "NSE_INDEX|Nifty 50",
+]
+
+
+def load_nifty_daily(
+    start: datetime.date,
+    end: datetime.date,
+) -> list[Candle]:
+    """
+    Load Nifty 50 daily candles from the shared marketdata.db.
+
+    Tries multiple known symbol variants — returns the first match.
+    Returns an empty list (gracefully) if Nifty data is not in the DB;
+    callers treat None nifty_context as "RS not available" and omit it
+    from the anchor block rather than failing.
+    """
+    ts_start, ts_end = _ts_range(start, end)
+    try:
+        with _conn() as c:
+            for sym in _NIFTY_SYMBOL_VARIANTS:
+                rows = c.execute(
+                    """SELECT ts, open, high, low, close, volume
+                       FROM equity_candles
+                       WHERE symbol=? AND unit='days' AND interval='1'
+                         AND ts >= ? AND ts <= ?
+                       ORDER BY ts""",
+                    (sym, ts_start, ts_end),
+                ).fetchall()
+                if rows:
+                    log.debug("load_nifty_daily: matched symbol '%s', %d rows", sym, len(rows))
+                    return [
+                        Candle(
+                            date=_fmt_date(r["ts"]),
+                            open=r["open"], high=r["high"],
+                            low=r["low"],   close=r["close"],
+                            volume=r["volume"],
+                        )
+                        for r in rows
+                    ]
+    except Exception as e:
+        log.warning("load_nifty_daily: could not load Nifty data (non-fatal): %s", e)
+    log.debug("load_nifty_daily: Nifty 50 not found in DB for %s→%s — RS skipped", start, end)
+    return []
 
 
 def get_daily_update_context(

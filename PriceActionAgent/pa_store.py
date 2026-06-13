@@ -171,6 +171,7 @@ class PAStore:
                 target_2       REAL,
                 confidence     TEXT,
                 rationale      TEXT,
+                next_plan      TEXT,
                 raw_json       TEXT,
                 created_at     TEXT NOT NULL
             );
@@ -178,6 +179,16 @@ class PAStore:
             CREATE INDEX IF NOT EXISTS idx_td_symbol_date
                 ON trade_decisions(symbol, decision_date);
         """)
+        # Migrations — safe to run on every open (ALTER TABLE IF NOT EXISTS
+        # is not supported; use pragma to check column existence).
+        existing = {
+            row[1]
+            for row in self.conn.execute("PRAGMA table_info(trade_decisions)")
+        }
+        if "next_plan" not in existing:
+            self.conn.execute(
+                "ALTER TABLE trade_decisions ADD COLUMN next_plan TEXT"
+            )
         self.conn.commit()
 
     # ------------------------------------------------------------------
@@ -282,16 +293,17 @@ class PAStore:
         confidence: str,
         rationale: str,
         raw_json: dict | str,
+        next_plan: str | None = None,
     ):
         raw = json.dumps(raw_json) if isinstance(raw_json, dict) else raw_json
         self.conn.execute(
             """INSERT INTO trade_decisions
                    (symbol, decision_date, direction, entry_price, stop_loss,
-                    target_1, target_2, confidence, rationale, raw_json, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    target_1, target_2, confidence, rationale, next_plan, raw_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (symbol, decision_date, direction, entry_price, stop_loss,
-             target_1, target_2, confidence, rationale, raw, _now_utc()),
+             target_1, target_2, confidence, rationale, next_plan, raw, _now_utc()),
         )
         self.conn.commit()
 

@@ -14,14 +14,25 @@ REPO = BASE.parent                                     # SniperAgent/ (shared ro
 
 
 def _sqlite_ok(d):
-    """SQLite needs real file locking; synced/cloud folders often lack it."""
+    """
+    Test that SQLite WAL mode works in directory d.
+    Synced/cloud folders (iCloud, Dropbox, OneDrive) often pass a basic
+    connect() but fail on WAL journal creation or executemany() for large
+    files — this probe catches both failure modes.
+    """
     try:
         d.mkdir(parents=True, exist_ok=True)
         p = d / ".sqlite_probe"
         conn = sqlite3.connect(str(p))
-        conn.execute("CREATE TABLE IF NOT EXISTS t (x)")
+        conn.execute("PRAGMA journal_mode=WAL")   # same mode Cache uses
+        conn.execute("CREATE TABLE IF NOT EXISTS t (x INTEGER)")
+        conn.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(50)])
+        conn.commit()
         conn.close()
         p.unlink(missing_ok=True)
+        # Also remove WAL/SHM sidecar files left by the probe
+        for suf in ("-wal", "-shm"):
+            (d / (p.name + suf)).unlink(missing_ok=True)
         return True
     except Exception:
         return False

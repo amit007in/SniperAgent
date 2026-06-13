@@ -1,0 +1,15 @@
+# SniperAgent — shared Python dependencies
+# Requires Python >= 3.10 (PriceActionAgent uses match/case; zoneinfo stdlib)
+
+# PriceActionAgent — Claude API + JSON recovery
+anthropic>=0.40.0
+json-repair>=0.28.0
+
+# SmartAgent + RealBackTest — market data, numerics, options math
+numpy>=1.24.0
+pandas>=2.0.0
+requests>=2.28.0
+scipy>=1.10.0
+
+# Dev / tests (optional but used by RealBackTest/tests)
+pytest>=7.0.0

@@ -84,15 +84,58 @@ export UPSTOX_ACCESS_TOKEN='<token>'
 python3 realbacktest.py fetch --equity-only
 ```
 
-### 4. Run a backtest
+### 4. Run a backtest (quick / ad-hoc)
 ```bash
 cd "/Users/amitkumar/Personal/work/source code/SniperAgent/RealBackTest"
 python3 realbacktest.py selftest                        # verify pipeline first
 python3 realbacktest.py audit                           # check data coverage
-python3 realbacktest.py run --tag v2_trend              # full backtest + report
+python3 realbacktest.py run --tag <name>                # full backtest + report
 ```
 
-### 5. Safe DB backup (before any file operations)
+### 5. Run the NSE-100 full 2-year backtest (first time or after fresh fetch)
+```bash
+cd "/Users/amitkumar/Personal/work/source code/SniperAgent/RealBackTest"
+python3 realbacktest.py run --tag nse100_full
+```
+- Covers the default window: `2024-06-01 → 2026-06-10`
+- **No token needed** — reads entirely from local `marketdata.db`; token expiry cannot interrupt it
+- Runs both main pass and flow-ablation pass — required for a complete GO/NO-GO verdict
+- Q1–Q3 2024 is cold-start burn-in (brain calibrates, ignore these results)
+- Q4-2024 onwards is where the learned edge accumulates — judge the run here
+- Expected duration: **16–32 hours** for 100 symbols × 2 years (both passes) — leave over a weekend
+- Brain state DB preserved at `Data/RealBackTest/db/rbt_nse100_full.db`
+- Report written to `Data/RealBackTest/reports/realworthiness_report_nse100_full.md`
+
+### 6. Seed live brain from approved backtest (one-time, before going live)
+
+The brain state at the end of the full 2-year run reflects learning across
+all 100 symbols with Q1–Q3 2024 as burn-in and Q4-2024 → Q1-2026 as
+productive learning. Seed this into the live agent so it does not start cold.
+
+**What is seeded:** weights, p*, Platt calibration (a, b), trade count, wins — per horizon
+**What is NOT seeded:** trades log, open positions (backtest artifacts, not real)
+
+```bash
+cd "/Users/amitkumar/Personal/work/source code/SniperAgent/DailyFetch"
+
+# Step 1 — inspect before writing (mandatory review)
+python3 seed_live_brain.py --dry-run
+# Prints per-horizon: p*, hit rate, calibration (a, b), top 5 features
+# Only proceed if the numbers look sound
+
+# Step 2 — seed if approved
+python3 seed_live_brain.py
+# Writes to Data/SmartAgent/hermes_omnihorizon_v2.db
+# Live agent loads these weights on next startup
+
+# To seed from a different approved run tag:
+python3 seed_live_brain.py --src "../Data/RealBackTest/db/rbt_<tag>.db"
+```
+
+> After seeding, start `allstrategy.py` normally — it loads the seeded weights
+> automatically and continues learning from there. No cold start.
+
+### 7. Safe DB backup (before any file operations)
 ```bash
 bash "/Users/amitkumar/Personal/work/source code/SniperAgent/DailyFetch/backup_marketdata.sh"
 # Saved to Data/backups/marketdata_YYYYMMDD_HHMMSS.db
@@ -102,17 +145,20 @@ bash "/Users/amitkumar/Personal/work/source code/SniperAgent/DailyFetch/backup_m
 
 ## RealBackTest Commands
 
-| Command | What it does | Duration |
-|---|---|---|
-| `python3 realbacktest.py selftest` | Offline pipeline verification (no token needed) | ~30 sec |
-| `python3 realbacktest.py audit` | Coverage report for all symbols in DB | ~5 sec |
-| `python3 realbacktest.py fetch --equity-only` | Equity bars only for all 100 symbols | 1–1.5 hrs (first run); < 2 min (incremental) |
-| `python3 realbacktest.py fetch` | Equity + options plane (49 symbols) | 8–12 hrs (first run); incremental after |
-| `python3 realbacktest.py run --tag <name>` | Full backtest + flow ablation + report | 1–8 hrs depending on universe |
-| `python3 realbacktest.py run --tag <name> --legacy` | Same but with Hermes V2 disabled (A/B baseline) | same |
+| Command | Token needed? | Resumable? | Duration |
+|---|---|---|---|
+| `python3 realbacktest.py selftest` | No | N/A | ~30 sec |
+| `python3 realbacktest.py audit` | No | N/A | ~5 sec |
+| `python3 realbacktest.py fetch --equity-only` | **Yes** | ✅ Yes | 1–1.5 hrs (first run); < 2 min (incremental) |
+| `python3 realbacktest.py fetch` | **Yes** | ✅ Yes | 8–12 hrs (first run); incremental after |
+| `python3 realbacktest.py run --tag <name>` | No | ❌ No | 1–16 hrs depending on universe |
+| `python3 realbacktest.py run --tag <name> --no-ablation` | No | ❌ No | Faster — skips flow-ablation pass |
+| `python3 realbacktest.py run --tag <name> --legacy` | No | ❌ No | A/B baseline: Hermes V2 disabled |
 
-All commands are **resumable** — if interrupted, re-run the same command and it
-picks up from the last completed chunk.
+**Fetch is resumable; run is not.** If the token expires during a fetch, export
+a fresh token and re-run the same command — it skips completed chunks. If a run
+crashes mid-way, restart from scratch (runs read only from local DB, so token
+expiry cannot interrupt them).
 
 ### Staged fetch (recommended order for first time)
 ```bash

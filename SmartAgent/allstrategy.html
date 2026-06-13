@@ -78,10 +78,11 @@
   evidence→fusion→Kelly→triple-barrier pipeline at four timescales at once, and letting each
   timescale <b>learn for itself</b> which evidence matters.</p>
   <div class="chips">
+    <span class="chip"><b>HERMES V2</b> default</span>
     <span class="chip"><b>4</b> horizons</span>
-    <span class="chip"><b>8</b> evidence features</span>
-    <span class="chip"><b>3</b> learning loops per horizon</span>
-    <span class="chip"><b>6</b> hard entry gates</span>
+    <span class="chip"><b>13</b> evidence features</span>
+    <span class="chip"><b>7</b> hard entry gates</span>
+    <span class="chip"><b>Shadow</b> learning</span>
     <span class="chip"><b>¼-Kelly</b> sizing</span>
     <span class="chip"><b>Triple-barrier</b> exits</span>
     <span class="chip"><b>Crash-safe</b> state</span>
@@ -104,7 +105,7 @@
 
   <div class="beginner">
     Imagine four detectives investigating the same stock. One studies it minute-by-minute,
-    one in 30-minute chunks, one day-by-day, one week-by-week. Each detective weighs eight
+    one in 30-minute chunks, one day-by-day, one week-by-week. Each detective weighs thirteen
     clues, announces "I'm X% confident this stock is about to rise", and — crucially —
     <b>keeps score of their own mistakes and recalibrates after every closed case</b>.
     When several detectives independently agree, each becomes a little bolder (never a lot).
@@ -135,10 +136,10 @@
       <text x="85" y="174" fill="#9aa7c4" text-anchor="middle">Upstox API</text>
 
       <rect x="200" y="90" width="160" height="110" rx="10" fill="#1a2342" stroke="#4fd1c5"/>
-      <text x="280" y="115" fill="#4fd1c5" text-anchor="middle" font-weight="700">EVIDENCE x₁…x₈</text>
+      <text x="280" y="115" fill="#4fd1c5" text-anchor="middle" font-weight="700">EVIDENCE x₁…x₁₃</text>
       <text x="280" y="138" fill="#e8ecf6" text-anchor="middle">structure · value · vol</text>
-      <text x="280" y="156" fill="#e8ecf6" text-anchor="middle">momentum · regime</text>
-      <text x="280" y="174" fill="#e8ecf6" text-anchor="middle">flow · PCR · VRP</text>
+      <text x="280" y="156" fill="#e8ecf6" text-anchor="middle">momentum · regime · align</text>
+      <text x="280" y="174" fill="#e8ecf6" text-anchor="middle">flow · PCR · VRP · V2 pack</text>
 
       <rect x="400" y="90" width="160" height="110" rx="10" fill="#1a2342" stroke="#f5c451"/>
       <text x="480" y="115" fill="#f5c451" text-anchor="middle" font-weight="700">FUSION</text>
@@ -147,9 +148,9 @@
       <text x="480" y="174" fill="#e8ecf6" text-anchor="middle">→ calibrated p</text>
 
       <rect x="600" y="90" width="150" height="110" rx="10" fill="#1a2342" stroke="#f07d8a"/>
-      <text x="675" y="115" fill="#f07d8a" text-anchor="middle" font-weight="700">6 GATES</text>
-      <text x="675" y="138" fill="#e8ecf6" text-anchor="middle">p ≥ p* · IV cap</text>
-      <text x="675" y="156" fill="#e8ecf6" text-anchor="middle">cooldown · min-profit</text>
+      <text x="675" y="115" fill="#f07d8a" text-anchor="middle" font-weight="700">7 GATES</text>
+      <text x="675" y="138" fill="#e8ecf6" text-anchor="middle">p ≥ p* · align veto</text>
+      <text x="675" y="156" fill="#e8ecf6" text-anchor="middle">IV · cooldown · min-PT</text>
       <text x="675" y="174" fill="#e8ecf6" text-anchor="middle">cost gate · Kelly &gt; 0</text>
 
       <rect x="790" y="90" width="100" height="110" rx="10" fill="#1a2342" stroke="#6ee7a0"/>
@@ -177,7 +178,7 @@
       <path d="M 965 200 L 965 265 L 480 265 L 480 204" marker-end="url(#arg)"/>
     </g>
     <text x="722" y="258" fill="#6ee7a0" font-size="13" text-anchor="middle" font-weight="700">
-      SELF-LEARNING: every closed trade updates weights, threshold p*, and calibration</text>
+      SELF-LEARNING: closed trades + shadows update weights, p*, and calibration</text>
     <text x="510" y="40" fill="#e8ecf6" font-size="15" text-anchor="middle" font-weight="700">
       One pipeline — run independently at 4 timescales, coupled only by a bounded agreement bonus</text>
     <g font-size="11.5" fill="#9aa7c4">
@@ -191,7 +192,7 @@
   <h3>Design philosophy in three rules</h3>
   <div class="grid g3">
     <div class="card"><h4>1 · Evidence over prediction</h4>
-      <p class="mut">No price targets, no forecasts. Eight observable market facts are fused
+      <p class="mut">No price targets, no forecasts. Thirteen observable market facts are fused
       into one probability that a favourable move is underway <i>right now</i>.</p></div>
     <div class="card"><h4>2 · Scepticism is the prior</h4>
       <p class="mut">The fusion starts at log-odds −1.0 (≈27% probability). Evidence must
@@ -266,14 +267,15 @@
 <!-- ============================== 3 EVIDENCE ============================== -->
 <section id="evidence">
   <div class="kicker">Section 3</div>
-  <h2>The Eight Evidence Features</h2>
+  <h2>The Thirteen Evidence Features</h2>
 
   <div class="beginner">
     Each clue is a number: positive = bullish, negative = bearish, zero = silent. Before
     fusing, every clue is squashed with <code>tanh(x/2)</code> so it lives in (−1, +1) — one
-    crazy outlier can never dominate the verdict. Three clues (x₆–x₈) come from the
-    <i>options market</i>: what option traders are paying and positioning tells us what the
-    big money believes about the stock.
+    crazy outlier can never dominate the verdict. The original eight (x₁–x₈) cover auction
+    structure, momentum, regime, and the options plane. V2 adds five more (x₉, x₁₁–x₁₄)
+    for maturity, acceleration, higher-timeframe alignment, and a momentum spectrum — all
+    competing inside the <i>same</i> evidence-mass budget as the original eight.
   </div>
 
   <div class="formula">φᵢ = tanh(xᵢ / 2)        every feature, every horizon, same squash</div>
@@ -341,6 +343,47 @@ RV_h = EWMA realised vol (λ=0.94) on the
       <div class="ex"><b>Example</b> RV 31%, IV 26% → x₈ = +0.19 → φ₈ = +0.10</div></div>
   </div>
 
+  <h3>V2 feature pack (enabled by default — <code>OMNI_V2=1</code>)</h3>
+  <div class="grid g2">
+    <div class="card"><h4>x₉ · Maturity / Range Position</h4>
+      <div class="formula">chop: x₉ = 2·(1 − 2·(C−LL)/(HH−LL))  over 200 bars
+trend: x₉ = 1.5 − 0.5·(HH₄₀ − C)/ATR  (pullback from swing high)
+x₉ = g·trend + (1−g)·chop</div>
+      <p class="mut">Regime-conditional: in chop, near the range base is bullish fuel; extended
+      highs are exhaustion. In trend, shallow pullbacks from recent highs are <i>good</i> (52-week-high
+      effect); deep breakdowns are not. Blended by the variance-ratio regime gate <code>g</code>.</p></div>
+
+    <div class="card"><h4>x₁₁ · Momentum Acceleration</h4>
+      <div class="formula">x₁₁ = t-stat(now) − t-stat(5 bars ago)</div>
+      <p class="mut">The <i>change</i> in momentum quality — an inflection detector. The t-stat
+      level is late by design; its delta fires at the turn (same level→delta lesson as ΔPCR).</p></div>
+
+    <div class="card"><h4>x₁₂ · HTF Trend Alignment</h4>
+      <div class="formula">intraday  ← short_term's mom t-stat (30-min bars)
+short_term ← swing's mom t-stat (daily bars)
+swing      ← positional's mom t-stat (weekly bars)
+positional ← own 40-bar secular drift t-stat</div>
+      <p class="mut">Each horizon hears the <i>next-slower</i> horizon's trend as a first-class
+      learnable voice (cached at the source's cadence — negligible API cost). Promotes "trend is
+      your friend" from a whisper to evidence with weight up to 2.5.</p>
+      <div class="ex"><b>Example</b> swing align = +1.4 → φ₁₂ = +0.76 (daily trend supports the long)</div></div>
+
+    <div class="card"><h4>x₁₄ · Long Momentum</h4>
+      <div class="formula">x₁₄ = t-stat over 5×MOM_WINDOW bars (100 bars)</div>
+      <p class="mut">A second, slower momentum t-stat. Fast (x₄) and slow (x₁₄) momentum become
+      separate learnable voices — making "shallow pullback inside a long advance" visible to
+      the fusion for the first time.</p></div>
+
+    <div class="card"><h4>x₁₆ · Volume-Confirmed Momentum</h4>
+      <div class="formula">x₁₆ = x₄ · clip(x₃, 0, 2) / 2</div>
+      <p class="mut">Drift on expanding participation persists; on fading volume it goes silent
+      (0), never penalised. An interaction a linear pooler cannot form.</p></div>
+  </div>
+
+  <div class="warn"><b>Mass renormalisation.</b> Thirteen features share the original eight-feature
+  weight budget (<code>mass_renorm</code>): richer evidence re-ranks influence but never inflates
+  overall conviction — L's scale stays comparable to v1 and Platt calibration is not crushed.</div>
+
   <figure class="svgbox">
   <svg viewBox="0 0 1020 230" width="100%">
     <text x="250" y="22" fill="#e8ecf6" font-size="14" font-weight="700" text-anchor="middle">Volume profile: POC &amp; value area (x₁, x₂)</text>
@@ -382,7 +425,7 @@ RV_h = EWMA realised vol (λ=0.94) on the
 <!-- ============================== 4 FUSION ============================== -->
 <section id="fusion">
   <div class="kicker">Section 4</div>
-  <h2>Fusion: from Eight Clues to One Calibrated Probability</h2>
+  <h2>Fusion: from Thirteen Clues to One Calibrated Probability</h2>
 
   <div class="beginner">
     Think of a sceptical judge. She starts every case at "probably not" (27%). Each clue
@@ -392,8 +435,14 @@ RV_h = EWMA realised vol (λ=0.94) on the
     for her own historical over/under-confidence before announcing the number.
   </div>
 
-  <h3>Step 1 — Weighted log-odds with a sceptical prior</h3>
-  <div class="formula">L_h = b₀ + Σᵢ w_h,i · φ_h,i           b₀ = −1.0  (prior ≈ 27%)</div>
+  <h3>Step 1 — Regime-gated weighted log-odds (V2 dual books)</h3>
+  <div class="formula">g = σ(K · smoothed x₅)          K = 2.0, EWMA λ = 0.85 on x₅
+w_eff,i = g · w_trend,i + (1−g) · w_chop,i
+L_h = b₀ + Σᵢ w_eff,i · φ_h,i     b₀ = −1.0  (prior ≈ 27%)</div>
+  <p class="mut">V2 maintains <i>two</i> weight books per horizon — trend and chop — blended by
+  the smoothed variance-ratio regime gate. In trending tape the trend book dominates; in chop the
+  chop book does. With <code>OMNI_V2=0</code> both books move in lockstep (g pinned at 0.5) and
+  fusion reverts to the v1 single-book form.</p>
 
   <h3>Step 2 — Bounded cross-horizon coupling</h3>
   <div class="formula">L′_h = L_h + κ · tanh( mean_{g≠h} L_g / 2 )      κ = 0.30</div>
@@ -401,24 +450,25 @@ RV_h = EWMA realised vol (λ=0.94) on the
   posterior is nudged that way — but the bonus is bounded by ±κ. Coupling breaks ties; it can
   never overturn strong local evidence.</p>
 
-  <h3>Step 3 — Online Platt calibration</h3>
+  <h3>Step 3 — Online Platt calibration (with warmup)</h3>
   <div class="formula">p_cal = σ(a·L′ + b)     a=1, b=0 at cold start (identity)
-after each closed trade (y = 1 if R&gt;0):
-  a ← a − 0.05·(p̂−y)·L′     bounded a ∈ [0.2, 3]
+V2 warmup: identity until 15 closed outcomes (CALIB_MIN_N)
+after each closed trade or shadow (y = 1 if R&gt;0):
+  a ← a − 0.05·(p̂−y)·L′     bounded a ∈ [0.5, 3]  (floor prevents crush)
   b ← b − 0.05·(p̂−y)        bounded b ∈ [−2, 2]</div>
   <p class="mut">A model that says "65%" but wins 30% of the time is lying to the Kelly sizer
   and the cost gate. Calibration learns the lie and deflates it: overconfidence shrinks
   <code>a</code> and pushes <code>b</code> negative. <b>p_cal drives every downstream
   decision</b>; raw p is logged alongside.</p>
 
-  <div class="ex"><b>Worked example (swing horizon).</b><br>
-  φ = [structure +0.78, value +0.32, vol +0.83, mom +0.78, vr +0.15, flow +0.40, pcr +0.80, vrp +0.10]<br>
-  w = [0.9, 0.8, 0.6, 1.2, 1.0, 0.5, 0.7, 0.7] (swing priors)<br>
-  Σ w·φ = 0.702+0.256+0.498+0.936+0.150+0.200+0.560+0.070 = <b>+3.37</b><br>
-  L = −1.0 + 3.37 = +2.37 → other horizons' mean L = +0.9 →
-  L′ = 2.37 + 0.30·tanh(0.45) = <b>+2.50</b><br>
-  Calibration (a=0.92, b=−0.10): p_cal = σ(0.92·2.50 − 0.10) = σ(2.20) = <b>0.90</b>.
-  Strong confluence — and it still has six gates to survive.</div>
+  <div class="ex"><b>Worked example (swing horizon, core 8 features shown).</b><br>
+  φ = [structure +0.78, value +0.32, vol +0.83, mom +0.78, vr +0.15, flow +0.40, pcr +0.80, vrp +0.10, align +0.76, …]<br>
+  w_eff ≈ swing priors blended by g=0.62 (mild trend regime)<br>
+  Σ w·φ on core eight = <b>+3.37</b> · with align +0.76 at w≈0.8 adds another <b>+0.61</b><br>
+  L = −1.0 + 3.98 = +2.98 → other horizons' mean L = +0.9 →
+  L′ = 2.98 + 0.30·tanh(0.45) = <b>+3.11</b><br>
+  Calibration (a=0.92, b=−0.10): p_cal = σ(0.92·3.11 − 0.10) = <b>0.94</b>.
+  Strong confluence — and it still has seven gates to survive.</div>
 
   <figure class="svgbox">
   <svg viewBox="0 0 1020 240" width="100%">
@@ -467,23 +517,26 @@ after each closed trade (y = 1 if R&gt;0):
 <!-- ============================== 5 GATES ============================== -->
 <section id="gates">
   <div class="kicker">Section 5</div>
-  <h2>Six Hard Gates — Conviction Is Not Enough</h2>
+  <h2>Seven Hard Gates — Conviction Is Not Enough</h2>
 
   <div class="beginner">
     Even at 90% confidence the engine refuses to trade if the trade is structurally bad:
-    too expensive to execute, too small a target to bother, options too panicked, or it
-    just exited the same setup. Every rejection is counted (gate telemetry), so "why didn't
-    it trade?" is always answerable with data, never a guess.
+    fighting a falling higher-timeframe trend, too expensive to execute, too small a target
+    to bother, options too panicked, or it just exited the same setup. Every rejection is
+    counted (gate telemetry), so "why didn't it trade?" is always answerable with data, never
+    a guess. Vetoed entries become <b>shadow trades</b> when every other hard gate would have
+    passed — so blocked cohorts stay auditable forever.
   </div>
 
   <table>
     <tr><th></th><th>Gate</th><th>Rule</th><th>Why it exists</th></tr>
     <tr><td><span class="num-badge">1</span></td><td>Conviction</td><td><code>p_cal ≥ p*</code> (adaptive, base 0.70, bounds 0.55–0.80; floor 0.65 when options plane is off)</td><td>Only high-quality confluence trades</td></tr>
-    <tr><td><span class="num-badge">2</span></td><td>IV cap</td><td>ATM call IV &lt; cap (RELIANCE 75, others 70)</td><td>Don't buy into panic-priced vol regimes</td></tr>
-    <tr><td><span class="num-badge">3</span></td><td>Cooldown</td><td>10 min / 2 h / 1 d / 5 d after any exit in that (horizon, symbol)</td><td>No churning back into a decaying setup</td></tr>
-    <tr><td><span class="num-badge">4</span></td><td>Min profit</td><td><code>rt·ATR/entry ≥</code> 2% / 3% / 5% (short/swing/posn)</td><td>NSE cash trades with sub-cost best case never earn the slot</td></tr>
-    <tr><td><span class="num-badge">5</span></td><td>Cost gate</td><td><code>p·β − (1−p) − 2·COST/1e4·entry/stop ≥ 0.20R</code></td><td>Edge must survive round-trip friction</td></tr>
-    <tr><td><span class="num-badge">6</span></td><td>Kelly &gt; 0</td><td>positive optimal fraction after all the above</td><td>Never size a trade the math says to skip</td></tr>
+    <tr><td><span class="num-badge">2</span></td><td>HTF align veto</td><td><code>φ_align ≥ −0.20</code> when V2 on (earned by battery: 10/10 misaligned entries lost)</td><td>No conviction may outvote a decisively falling higher-timeframe trend</td></tr>
+    <tr><td><span class="num-badge">3</span></td><td>IV cap</td><td>ATM call IV &lt; cap (per-symbol, e.g. RELIANCE 75, others 70)</td><td>Don't buy into panic-priced vol regimes</td></tr>
+    <tr><td><span class="num-badge">4</span></td><td>Cooldown</td><td>10 min / 2 h / 1 d / 5 d after any exit in that (horizon, symbol)</td><td>No churning back into a decaying setup</td></tr>
+    <tr><td><span class="num-badge">5</span></td><td>Min profit</td><td><code>rt·ATR/entry ≥</code> 2% / 3% / 5% (short/swing/posn)</td><td>NSE cash trades with sub-cost best case never earn the slot</td></tr>
+    <tr><td><span class="num-badge">6</span></td><td>Cost gate</td><td><code>p·β − (1−p) − 2·COST/1e4·entry/stop ≥ 0.20R</code></td><td>Edge must survive round-trip friction</td></tr>
+    <tr><td><span class="num-badge">7</span></td><td>Kelly &gt; 0</td><td>positive optimal fraction after all the above</td><td>Never size a trade the math says to skip</td></tr>
   </table>
 
   <div class="ex"><b>Cost gate worked example.</b> p = 0.72, β = R_T/R_S = 2.0, entry ₹1480,
@@ -574,7 +627,7 @@ after each closed trade (y = 1 if R&gt;0):
       <!-- trail steps -->
       <path d="M 230 205 L 310 205 L 310 168 L 400 168 L 400 152 L 500 152 L 500 142 L 640 142"
             stroke="#f5c451" stroke-width="2.4" fill="none"/>
-      <text x="245" y="222" fill="#f5c451">trail arms at +1.5·ATR, then SL = HWM − trail·ATR (only ratchets up)</text>
+      <text x="245" y="222" fill="#f5c451">trail arms at max(arm_atr, 0.55·rt)·ATR — then SL = HWM − trail·ATR (only ratchets up)</text>
       <circle cx="640" cy="125" r="6" fill="#f5c451"/>
       <text x="652" y="130" fill="#f5c451" font-weight="700">TRAILED exit</text>
       <text x="652" y="147" fill="#9aa7c4">(profit locked)</text>
@@ -585,6 +638,12 @@ after each closed trade (y = 1 if R&gt;0):
   <figcaption>One trade's life. The high-water mark drags the stop up behind price; whichever
   wall is touched first names the outcome.</figcaption>
   </figure>
+
+  <h3>V2 late trail arming</h3>
+  <p class="mut">With <code>trail_late</code> on (default), the chandelier trail does not arm at a
+  fixed ATR offset alone — it waits until price reaches <code>max(arm_atr, 0.55 × rt) × ATR</code>
+  from entry (≥ 55% of the profit-target distance). This prevents scrap-harvesting: the trail
+  cannot lock in a tiny gain before the trade has earned meaningful progress toward its PT.</p>
 
   <h3>The re-underwriting time stop (conditional vertical barrier)</h3>
   <p>When max-hold is reached, "time elapsed" is replaced by "information decayed":</p>
@@ -613,14 +672,15 @@ after each closed trade (y = 1 if R&gt;0):
 <!-- ============================== 8 LEARNING ============================== -->
 <section id="learning">
   <div class="kicker">Section 8</div>
-  <h2>The Self-Learning Loop — Three Adaptations per Horizon</h2>
+  <h2>The Self-Learning Loop — V2 Adaptations per Horizon</h2>
 
   <div class="beginner">
-    After every closed trade, three things update — only for the horizon that owned the trade:
-    <b>(1)</b> the weights of the eight clues (clues that "spoke up" before wins get louder;
-    before losses, quieter), <b>(2)</b> the entry bar p* (losses raise it fast, wins lower it
-    slowly — the agent gets pickier when it's wrong), and <b>(3)</b> the calibration map
-    (its honesty about its own confidence). The intraday brain never contaminates the
+    After every closed trade — and every resolved <b>shadow trade</b> (counterfactual
+    evaluations that failed only the p* or align-veto gates) — the owning horizon updates:
+    <b>(1)</b> dual weight books (trend + chop, regime-gated at fusion time), <b>(2)</b> the
+    entry bar p* (losses raise it fast, wins lower it slowly; idle decay releases it toward
+    base when flat), and <b>(3)</b> the Platt calibration map. All thirteen features compete
+    inside the original eight-feature mass budget. The intraday brain never contaminates the
     positional brain.
   </div>
 
@@ -640,16 +700,16 @@ after each closed trade (y = 1 if R&gt;0):
         <path d="M 590 70 L 840 110" marker-end="url(#ar3)"/>
       </g>
       <rect x="40"  y="115" width="290" height="120" rx="10" fill="#1a2342" stroke="#4fd1c5"/>
-      <text x="185" y="138" text-anchor="middle" fill="#4fd1c5" font-weight="700">① WEIGHTS (exp-gradient)</text>
-      <text x="185" y="160" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">wᵢ ← clip(wᵢ·exp(η·R·φᵢ), 0.1, 2.5)</text>
-      <text x="185" y="182" text-anchor="middle" fill="#9aa7c4">then renormalise: Σwᵢ conserved</text>
-      <text x="185" y="202" text-anchor="middle" fill="#9aa7c4">(evidence-mass conservation —</text>
-      <text x="185" y="220" text-anchor="middle" fill="#9aa7c4">divergence impossible by construction)</text>
+      <text x="185" y="138" text-anchor="middle" fill="#4fd1c5" font-weight="700">① DUAL BOOKS (exp-gradient)</text>
+      <text x="185" y="160" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">wᵢ ← clip(wᵢ·exp(η·R·φᵢ·share), 0.1, 2.5)</text>
+      <text x="185" y="182" text-anchor="middle" fill="#9aa7c4">trend book + chop book, share = g or 1−g</text>
+      <text x="185" y="202" text-anchor="middle" fill="#9aa7c4">renormalise to w_total (13 features,</text>
+      <text x="185" y="220" text-anchor="middle" fill="#9aa7c4">original 8-feature mass budget)</text>
       <rect x="365" y="115" width="290" height="120" rx="10" fill="#1a2342" stroke="#f5c451"/>
       <text x="510" y="138" text-anchor="middle" fill="#f5c451" font-weight="700">② ENTRY BAR p*</text>
       <text x="510" y="162" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">loss: p* ← min(0.80, p*+0.015)</text>
       <text x="510" y="182" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">win:  p* ← max(0.55, p*−0.005)</text>
-      <text x="510" y="206" text-anchor="middle" fill="#9aa7c4">asymmetric: pain teaches 3× faster</text>
+      <text x="510" y="206" text-anchor="middle" fill="#9aa7c4">+ idle decay 0.003/day toward p_base</text>
       <rect x="690" y="115" width="290" height="120" rx="10" fill="#1a2342" stroke="#f07d8a"/>
       <text x="835" y="138" text-anchor="middle" fill="#f07d8a" font-weight="700">③ CALIBRATION (Platt)</text>
       <text x="835" y="162" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">a ← a − 0.05·(p̂−y)·L</text>
@@ -661,16 +721,25 @@ after each closed trade (y = 1 if R&gt;0):
       <text x="510" y="282" text-anchor="middle" fill="#6ee7a0" font-weight="700">→ next evaluation uses the updated brain · state persisted to SQLite, survives restarts</text>
     </g>
   </svg>
-  <figcaption>Strict isolation: a closed swing trade updates only the swing learner. Weights,
-  p* and calibration are re-hydrated from <code>brain_state</code> on startup.</figcaption>
+  <figcaption>Strict isolation: a closed swing trade updates only the swing learner. Dual books,
+  p*, and calibration are re-hydrated from <code>brain_state</code> on startup.</figcaption>
   </figure>
 
-  <div class="ex"><b>Weight-update worked example (short_term, η = 0.08).</b><br>
-  Trade closes at R = +1.8. At entry, φ_mom = +0.78, φ_pcr = +0.05.<br>
-  mom: w ← 0.9 × exp(0.08×1.8×0.78) = 0.9 × 1.119 = <b>1.007</b> (louder — it spoke and was right)<br>
-  pcr: w ← 0.8 × exp(0.08×1.8×0.05) = 0.8 × 1.007 = <b>0.806</b> (nearly silent at entry → barely moves)<br>
-  Then all eight weights are scaled so their sum returns to the horizon's initial mass —
-  for a feature to grow, another must shrink. Conviction is zero-sum.</div>
+  <h3>Shadow learning (counterfactual trades)</h3>
+  <p class="mut">When an evaluation fails <i>only</i> the p* gate (or the align veto) but would
+  have passed every other hard gate, V2 registers an in-memory <b>shadow position</b> walked by
+  the same pessimistic triple-barrier engine. Shadows teach at quarter authority
+  (<code>η × 0.25</code>), further scaled by <code>1/√N_symbols</code> so a 100-symbol universe
+  cannot stampede shared p*/calibration state. Winning shadows lower p* slightly (recovery
+  channel while flat); losing shadows gently confirm the bar. No orders, no DB rows — pure
+  counterfactual audit.</p>
+
+  <div class="ex"><b>Weight-update worked example (short_term, η = 0.08, g = 0.7 trend).</b><br>
+  Trade closes at R = +1.8. At entry, φ_mom = +0.78, φ_align = +0.60.<br>
+  mom (trend book, share 0.7): w ← 0.9 × exp(0.08×1.8×0.78×0.7) = <b>0.978</b><br>
+  align (trend book): w ← 0.8 × exp(0.08×1.8×0.60×0.7) = <b>0.857</b> (HTF trend spoke and was right)<br>
+  Then all thirteen weights per book are scaled so their sum returns to the horizon's initial
+  mass — for a feature to grow, another must shrink. Conviction is zero-sum.</div>
 
   <details><summary>Why exponentiated-gradient (and not plain gradient descent)?</summary>
     <div class="inner"><p class="mut">EG updates are multiplicative, so weights stay positive
@@ -711,9 +780,20 @@ after each closed trade (y = 1 if R&gt;0):
       automatically suppress trading and vol expansion re-enables it — no volatility filter
       needed; it falls out of the arithmetic.</p></div>
     <div class="card"><h4>Honesty machinery</h4><p class="mut">Online Platt calibration feeds
-      <i>deflated</i> probabilities to Kelly and the cost gate. ΔPCR self-normalisation fixes
-      a real battery-discovered flaw (OI levels saturate). Earned-credit diagnostics separate
-      "what the learner believes" from "what renormalisation deployed".</p></div>
+      <i>deflated</i> probabilities to Kelly and the cost gate — with a 15-outcome warmup and
+      an <code>a</code> floor so early noisy samples cannot lock a horizon out. ΔPCR
+      self-normalisation fixes a real battery-discovered flaw (OI levels saturate).
+      Earned-credit diagnostics separate "what the learner believes" from "what renormalisation
+      deployed".</p></div>
+    <div class="card"><h4>HTF alignment veto + shadow audit</h4><p class="mut">Battery-earned
+      hard gate: no long against φ_align &lt; −0.20. Vetoed entries become shadows, so the rule
+      stays falsifiable — if the market proves the veto wrong, the report says so in numbers.</p></div>
+    <div class="card"><h4>Regime-gated dual weight books</h4><p class="mut">Trend and chop are
+      different games. V2 learns separate weight vectors for each, blended by a smoothed
+      variance-ratio gate — breakout evidence trusted in trends, mean-reversion respected in chop.</p></div>
+    <div class="card"><h4>Shadow counterfactual learning</h4><p class="mut">Below-p* evaluations
+      that passed every other gate are walked as phantom trades — teaching at reduced authority
+      without placing orders, and providing a recovery channel for p* while the horizon is flat.</p></div>
   </div>
 </section>
 
@@ -721,6 +801,14 @@ after each closed trade (y = 1 if R&gt;0):
 <section id="setup">
   <div class="kicker">Section 10</div>
   <h2>Setup, Data &amp; Operations</h2>
+
+  <h3>Universe &amp; configuration</h3>
+  <p class="mut">Default universe is 5 liquid symbols; when <code>universe_nse100.py</code> exists
+  (generated once by <code>build_universe.py</code> from Upstox's instruments file), it replaces
+  the default with ~100 NSE names. <b>HERMES V2</b> is on by default (<code>OMNI_V2=1</code>);
+  set <code>OMNI_V2=0</code> to restore v1 behaviour (single weight book, 8 features active,
+  no shadows, no align veto). Individual V2 flags can be toggled in the <code>V2</code> dict for
+  A/B testing. PCR mode defaults to <code>delta</code> (<code>OMNI_PCR_MODE=level|delta</code>).</p>
 
   <h3>Data pipeline (Upstox official endpoints)</h3>
   <table>
@@ -756,7 +844,7 @@ after each closed trade (y = 1 if R&gt;0):
     <tr><th>What</th><th>Where</th><th>Survives restart?</th></tr>
     <tr><td>Open positions (entry, SL, HWM, extensions)</td><td><code>open_positions</code> table, written on every mutation</td><td>✓ re-hydrated on startup</td></tr>
     <tr><td>Closed-trade ledger (features, p, Kelly, R)</td><td><code>trades</code> table — <code>hermes_omnihorizon_v2.db</code></td><td>✓ (the learning corpus)</td></tr>
-    <tr><td>Brain (weights, p*, calibration a/b)</td><td><code>brain_state</code> table, per horizon</td><td>✓</td></tr>
+    <tr><td>Brain (dual weight books, p*, calibration a/b)</td><td><code>brain_state</code> table — <code>weights_json</code> stores <code>{trend, chop}</code> per horizon</td><td>✓</td></tr>
     <tr><td>Orchestration</td><td><code>sniper_agent_wrapper.py</code> — market-hours cron 09:15, assessment 15:30, NSE-holiday aware, <code>caffeinate</code></td><td>—</td></tr>
   </table>
 
@@ -804,10 +892,16 @@ after each closed trade (y = 1 if R&gt;0):
     <div class="card"><h4>Platt calibration</h4><p class="mut">A tiny two-parameter map that
       converts a model's raw confidence into honest probability, learned from its own track
       record. The difference between "I feel 70%" and "history says my 70% wins 70%".</p></div>
+    <div class="card"><h4>Shadow trade</h4><p class="mut">A counterfactual position registered
+      when conviction (or alignment) blocks entry but every other gate would pass. Walked by the
+      same barrier engine, teaches at reduced authority, never places an order.</p></div>
+    <div class="card"><h4>HTF alignment</h4><p class="mut">Each horizon's read on the
+      next-slower timescale's trend (momentum t-stat on native bars). Positive = higher timeframe
+      supports the long; below −0.20 triggers the align veto.</p></div>
   </div>
 </section>
 
 </div>
-<footer>Generated for SniperAgent · Hermes Omnihorizon v1.0 · research software, not financial advice</footer>
+<footer>Generated for SniperAgent · Hermes Omnihorizon v2.0 · <code>OMNI_V2=1</code> default · research software, not financial advice</footer>
 </body>
 </html>

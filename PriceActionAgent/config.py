@@ -256,7 +256,7 @@ SETUP_PARAMS = {
     "momentum_vol_min":          float(os.environ.get("PA_MOMENTUM_VOL_MIN",        "2.0")),
     "momentum_close_beyond_pct": float(os.environ.get("PA_MOMENTUM_CLOSE_BEYOND_PCT", "0.5")),
     "momentum_close_range_pct":  float(os.environ.get("PA_MOMENTUM_CLOSE_RANGE_PCT", "25")),
-    "max_gap_pct":               float(os.environ.get("PA_MAX_GAP_PCT",             "1.5")),
+    "max_gap_pct":               float(os.environ.get("PA_MAX_GAP_PCT",             "1.75")),
     "momentum_target_min_pct":   float(os.environ.get("PA_MOMENTUM_TARGET_MIN_PCT", "3.0")),
     "momentum_target_max_pct":   float(os.environ.get("PA_MOMENTUM_TARGET_MAX_PCT", "8.0")),
     "rs_weekly_threshold_pct":   float(os.environ.get("PA_RS_WEEKLY_PCT",           "1.0")),

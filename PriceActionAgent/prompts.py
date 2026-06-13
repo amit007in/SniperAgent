@@ -598,6 +598,9 @@ T1 · TREND_PULLBACK_TO_MA
 
 T2 · TIGHT_CONSOLIDATION_BREAKOUT
   ✓ 1W and 1D aligned in same direction (both UPTREND → BUY; both DOWNTREND → SELL)
+    — T2 EXCEPTION (T2 only): also valid when 1W is TRANSITIONING provided BOTH 1D and 4H
+      are UPTREND (for BUY) or BOTH 1D and 4H are DOWNTREND (for SELL). A TRANSITIONING 1W
+      does NOT block T2 as long as 1D and 4H agree on direction.
   ✓ Price in tight consolidation for {consolidation_min_bars}–{consolidation_max_bars} bars: full range < {consolidation_max_range_pct}%
   ✓ Consolidation positioned above key 1D support (BUY) or below key 1D resistance (SELL)
     — NOT near a major resistance overhead (BUY) or support below (SELL)
@@ -614,6 +617,9 @@ MOMENTUM SETUPS  (enter on strength — highest reward, strictest gates)
 
 M1 · MOMENTUM_BREAKOUT  (enter on the breakout bar — not the retest)
   ✓ 1W UPTREND (BUY) or DOWNTREND (SELL)
+    — M1 EXCEPTION (M1 only): also valid when 1W is TRANSITIONING provided BOTH 1D and 4H
+      are UPTREND (for BUY) or BOTH 1D and 4H are DOWNTREND (for SELL). A TRANSITIONING 1W
+      does NOT block M1 as long as 1D and 4H agree on direction.
   ✓ 1D signal bar breaks above multi-week resistance (BUY) or below multi-week support (SELL)
     — level must be in claim_registry and tested ≥ {min_sr_tests} times previously
   ✓ Volume on breakout bar ≥ {momentum_vol_min}× avg — strong institutional conviction required
@@ -1626,8 +1632,11 @@ AFTER ALL CHUNKS — THREE-PASS FINAL SYNTHESIS:
             Run the HUNT PROTOCOL from the system prompt:
               Step 1: check hard disqualifiers → NO_TRADE if any fire.
               Step 2: confirm cascade (1W → 1D → 4H).
-              Step 3: check named setups in order (B1→B4 or S1→S4).
-              Step 4: verify R:R ≥ 1.5:1.
+              Step 3: check ALL named setups in order for the permitted direction:
+                      BUY:  B1→B2→B3→B4→T1→T2→M1→M2
+                      SELL: S1→S2→S3→S4
+                      (structure first, then trend, then momentum — first full confirm wins).
+              Step 4: verify R:R ≥ {SETUP_PARAMS['min_rr_ratio']}:1 (apply B2/S2/M1 measured-move fallback before rejecting).
               Step 5: source all prices from real OHLCV.
             State which setup triggered (e.g. "SETUP: B2 · BREAKOUT_RETEST")
             or which step rejected the trade. NO_TRADE is correct when in doubt.

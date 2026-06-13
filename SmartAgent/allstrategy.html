@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Omnihorizon — The Sniper Agent Strategy, Explained</title>
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#11182e; --card:#151d36; --card2:#1a2342;
+    --ink:#e8ecf6; --mut:#9aa7c4; --gold:#f5c451; --teal:#4fd1c5;
+    --rose:#f07d8a; --green:#6ee7a0; --blue:#7aa2f7; --line:#2a3558;
+    --mono:'SF Mono',Consolas,'Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,'Segoe UI',Roboto,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px}
+  h1{font-size:2.1rem;line-height:1.2}
+  h2{font-size:1.5rem;margin:0 0 6px;color:var(--gold)}
+  h3{font-size:1.12rem;margin:18px 0 8px;color:var(--teal)}
+  p{margin:8px 0;color:var(--ink)}
+  .mut{color:var(--mut)}
+  section{margin:34px 0;padding:26px;background:var(--bg2);border:1px solid var(--line);border-radius:16px}
+  .kicker{letter-spacing:.18em;text-transform:uppercase;font-size:.72rem;color:var(--teal);font-weight:700}
+  .hero{padding:46px 26px;text-align:center;background:
+    radial-gradient(900px 300px at 50% -40px,#1c2a55 0%,transparent 70%),var(--bg2)}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 15px;font-size:.85rem}
+  .chip b{color:var(--gold)}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h4{color:var(--gold);margin-bottom:6px;font-size:1rem}
+  .formula{background:#0d1326;border:1px solid var(--line);border-left:3px solid var(--teal);
+    border-radius:8px;padding:12px 16px;font-family:var(--mono);font-size:.95rem;margin:10px 0;
+    overflow-x:auto;color:#cfe3ff;white-space:pre}
+  .ex{background:#102016;border:1px solid #1d4030;border-left:3px solid var(--green);
+    border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.93rem}
+  .ex b{color:var(--green)}
+  .warn{background:#231522;border:1px solid #4a2538;border-left:3px solid var(--rose);
+    border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.93rem}
+  .warn b{color:var(--rose)}
+  .beginner{background:#10182f;border:1px dashed var(--blue);border-radius:10px;padding:12px 16px;margin:10px 0;font-size:.95rem}
+  .beginner::before{content:"FOR BEGINNERS";display:block;font-size:.68rem;letter-spacing:.15em;color:var(--blue);font-weight:700;margin-bottom:4px}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:0}
+  summary{cursor:pointer;padding:12px 16px;color:var(--teal);font-weight:600;list-style:none}
+  summary::before{content:"▸ ";transition:.2s}
+  details[open] summary::before{content:"▾ "}
+  details .inner{padding:0 16px 14px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.9rem}
+  th{color:var(--gold);text-align:left;border-bottom:2px solid var(--line);padding:8px 10px}
+  td{border-bottom:1px solid var(--line);padding:8px 10px;color:var(--ink)}
+  td.num,th.num{text-align:right;font-family:var(--mono)}
+  code{font-family:var(--mono);background:#0d1326;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:.88em;color:#ffd98a}
+  .svgbox{background:#0d1326;border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px 0;overflow-x:auto}
+  .svgbox figcaption{font-size:.82rem;color:var(--mut);text-align:center;margin-top:8px}
+  nav.toc{position:sticky;top:0;z-index:9;background:rgba(11,16,32,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:8px}
+  nav.toc .wrap{display:flex;flex-wrap:wrap;gap:6px;padding:0 24px}
+  nav.toc a{color:var(--mut);text-decoration:none;font-size:.78rem;padding:4px 10px;border:1px solid var(--line);border-radius:999px}
+  nav.toc a:hover{color:var(--gold);border-color:var(--gold)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--mut);justify-content:center;margin-top:6px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  footer{padding:30px;text-align:center;color:var(--mut);font-size:.85rem}
+  .num-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+    border-radius:50%;background:var(--gold);color:#1a1c25;font-weight:800;font-size:.85rem;margin-right:8px}
+  svg text{font-family:-apple-system,'Segoe UI',sans-serif}
+  svg .mono{font-family:var(--mono)}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="kicker">SniperAgent · SmartAgent/allstrategy.py</div>
+  <h1>Hermes Omnihorizon</h1>
+  <p class="mut" style="max-width:760px;margin:10px auto">A multi-horizon, self-learning Bayesian
+  confluence engine that hunts long entries in liquid NSE stocks — running the <b>same</b>
+  evidence→fusion→Kelly→triple-barrier pipeline at four timescales at once, and letting each
+  timescale <b>learn for itself</b> which evidence matters.</p>
+  <div class="chips">
+    <span class="chip"><b>4</b> horizons</span>
+    <span class="chip"><b>8</b> evidence features</span>
+    <span class="chip"><b>3</b> learning loops per horizon</span>
+    <span class="chip"><b>6</b> hard entry gates</span>
+    <span class="chip"><b>¼-Kelly</b> sizing</span>
+    <span class="chip"><b>Triple-barrier</b> exits</span>
+    <span class="chip"><b>Crash-safe</b> state</span>
+  </div>
+</div>
+
+<nav class="toc"><div class="wrap">
+  <a href="#idea">1 Big idea</a><a href="#horizons">2 Horizons</a><a href="#evidence">3 Evidence</a>
+  <a href="#fusion">4 Fusion math</a><a href="#gates">5 Gates</a><a href="#sizing">6 Sizing</a>
+  <a href="#exits">7 Exits</a><a href="#learning">8 Self-learning</a><a href="#novelty">9 Novelty</a>
+  <a href="#setup">10 Setup</a><a href="#glossary">11 Glossary</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- ============================== 1 BIG IDEA ============================== -->
+<section id="idea">
+  <div class="kicker">Section 1</div>
+  <h2>The Big Idea</h2>
+
+  <div class="beginner">
+    Imagine four detectives investigating the same stock. One studies it minute-by-minute,
+    one in 30-minute chunks, one day-by-day, one week-by-week. Each detective weighs eight
+    clues, announces "I'm X% confident this stock is about to rise", and — crucially —
+    <b>keeps score of their own mistakes and recalibrates after every closed case</b>.
+    When several detectives independently agree, each becomes a little bolder (never a lot).
+    A trade happens only when one detective's confidence clears a high, self-adjusting bar
+    <i>and</i> the trade is mathematically worth its costs.
+  </div>
+
+  <p>The engine rests on one assumption: <b>markets are approximately self-similar</b>.
+  Auction structure, participation anomalies and flow imbalances carry signal at every
+  timescale — but with different relative importance. So instead of hand-crafting four
+  different strategies, Hermes runs <b>one identical pipeline at four resolutions</b> and
+  lets per-horizon learners discover what matters at each scale.</p>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 330" width="100%">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9aa7c4"/></marker>
+      <marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#6ee7a0"/></marker>
+    </defs>
+    <!-- stage boxes -->
+    <g font-size="13">
+      <rect x="10" y="90" width="150" height="110" rx="10" fill="#1a2342" stroke="#7aa2f7"/>
+      <text x="85" y="115" fill="#7aa2f7" text-anchor="middle" font-weight="700">MARKET DATA</text>
+      <text x="85" y="138" fill="#e8ecf6" text-anchor="middle">bars (1m/30m/D/W)</text>
+      <text x="85" y="156" fill="#e8ecf6" text-anchor="middle">option chain (ATM)</text>
+      <text x="85" y="174" fill="#9aa7c4" text-anchor="middle">Upstox API</text>
+
+      <rect x="200" y="90" width="160" height="110" rx="10" fill="#1a2342" stroke="#4fd1c5"/>
+      <text x="280" y="115" fill="#4fd1c5" text-anchor="middle" font-weight="700">EVIDENCE x₁…x₈</text>
+      <text x="280" y="138" fill="#e8ecf6" text-anchor="middle">structure · value · vol</text>
+      <text x="280" y="156" fill="#e8ecf6" text-anchor="middle">momentum · regime</text>
+      <text x="280" y="174" fill="#e8ecf6" text-anchor="middle">flow · PCR · VRP</text>
+
+      <rect x="400" y="90" width="160" height="110" rx="10" fill="#1a2342" stroke="#f5c451"/>
+      <text x="480" y="115" fill="#f5c451" text-anchor="middle" font-weight="700">FUSION</text>
+      <text x="480" y="138" fill="#e8ecf6" text-anchor="middle">weighted log-odds</text>
+      <text x="480" y="156" fill="#e8ecf6" text-anchor="middle">+ horizon agreement</text>
+      <text x="480" y="174" fill="#e8ecf6" text-anchor="middle">→ calibrated p</text>
+
+      <rect x="600" y="90" width="150" height="110" rx="10" fill="#1a2342" stroke="#f07d8a"/>
+      <text x="675" y="115" fill="#f07d8a" text-anchor="middle" font-weight="700">6 GATES</text>
+      <text x="675" y="138" fill="#e8ecf6" text-anchor="middle">p ≥ p* · IV cap</text>
+      <text x="675" y="156" fill="#e8ecf6" text-anchor="middle">cooldown · min-profit</text>
+      <text x="675" y="174" fill="#e8ecf6" text-anchor="middle">cost gate · Kelly &gt; 0</text>
+
+      <rect x="790" y="90" width="100" height="110" rx="10" fill="#1a2342" stroke="#6ee7a0"/>
+      <text x="840" y="115" fill="#6ee7a0" text-anchor="middle" font-weight="700">SIZE</text>
+      <text x="840" y="138" fill="#e8ecf6" text-anchor="middle">¼-Kelly</text>
+      <text x="840" y="156" fill="#e8ecf6" text-anchor="middle">of sleeve</text>
+      <text x="840" y="174" fill="#9aa7c4" text-anchor="middle">5% risk cap</text>
+
+      <rect x="920" y="90" width="90" height="110" rx="10" fill="#1a2342" stroke="#7aa2f7"/>
+      <text x="965" y="115" fill="#7aa2f7" text-anchor="middle" font-weight="700">EXIT</text>
+      <text x="965" y="138" fill="#e8ecf6" text-anchor="middle">PT / SL</text>
+      <text x="965" y="156" fill="#e8ecf6" text-anchor="middle">trail / time</text>
+      <text x="965" y="174" fill="#9aa7c4" text-anchor="middle">bar-walk</text>
+    </g>
+    <!-- arrows -->
+    <g stroke="#9aa7c4" stroke-width="2" fill="none">
+      <line x1="160" y1="145" x2="196" y2="145" marker-end="url(#ar)"/>
+      <line x1="360" y1="145" x2="396" y2="145" marker-end="url(#ar)"/>
+      <line x1="560" y1="145" x2="596" y2="145" marker-end="url(#ar)"/>
+      <line x1="750" y1="145" x2="786" y2="145" marker-end="url(#ar)"/>
+      <line x1="890" y1="145" x2="916" y2="145" marker-end="url(#ar)"/>
+    </g>
+    <!-- learning feedback loop -->
+    <g stroke="#6ee7a0" stroke-width="2.5" fill="none">
+      <path d="M 965 200 L 965 265 L 480 265 L 480 204" marker-end="url(#arg)"/>
+    </g>
+    <text x="722" y="258" fill="#6ee7a0" font-size="13" text-anchor="middle" font-weight="700">
+      SELF-LEARNING: every closed trade updates weights, threshold p*, and calibration</text>
+    <text x="510" y="40" fill="#e8ecf6" font-size="15" text-anchor="middle" font-weight="700">
+      One pipeline — run independently at 4 timescales, coupled only by a bounded agreement bonus</text>
+    <g font-size="11.5" fill="#9aa7c4">
+      <text x="510" y="62" text-anchor="middle">intraday (1-min) · short_term (30-min) · swing (daily) · positional (weekly)</text>
+    </g>
+  </svg>
+  <figcaption>The full lifecycle. The green loop is what makes the agent self-improving:
+  outcomes flow back into the decision weights — per horizon, never across horizons.</figcaption>
+  </figure>
+
+  <h3>Design philosophy in three rules</h3>
+  <div class="grid g3">
+    <div class="card"><h4>1 · Evidence over prediction</h4>
+      <p class="mut">No price targets, no forecasts. Eight observable market facts are fused
+      into one probability that a favourable move is underway <i>right now</i>.</p></div>
+    <div class="card"><h4>2 · Scepticism is the prior</h4>
+      <p class="mut">The fusion starts at log-odds −1.0 (≈27% probability). Evidence must
+      <i>overcome</i> scepticism — silence means no trade. Most evaluations end in no trade.</p></div>
+    <div class="card"><h4>3 · Never hand-tune what can be learned</h4>
+      <p class="mut">Priors encode intuition (flow matters intraday, momentum matters
+      positionally), but if reality disagrees, the per-horizon learners migrate the weights.</p></div>
+  </div>
+</section>
+
+<!-- ============================== 2 HORIZONS ============================== -->
+<section id="horizons">
+  <div class="kicker">Section 2</div>
+  <h2>The Four Horizons</h2>
+
+  <div class="beginner">
+    A "horizon" is a zoom level. Each one has its own candle size, its own maximum holding
+    period, its own profit/stop distances (scaled by that zoom level's typical wiggle, the
+    ATR), its own slice of capital, and its own brain. Faster horizons learn faster but see
+    noisier outcomes; slower horizons learn cautiously.
+  </div>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 250" width="100%">
+    <g font-size="13">
+      <!-- timeline bands -->
+      <rect x="120" y="30"  width="60"  height="34" rx="7" fill="#7aa2f7" opacity=".85"/>
+      <rect x="120" y="84"  width="220" height="34" rx="7" fill="#4fd1c5" opacity=".85"/>
+      <rect x="120" y="138" width="480" height="34" rx="7" fill="#f5c451" opacity=".85"/>
+      <rect x="120" y="192" width="860" height="34" rx="7" fill="#f07d8a" opacity=".85"/>
+      <text x="10" y="52"  fill="#7aa2f7" font-weight="700">intraday</text>
+      <text x="10" y="106" fill="#4fd1c5" font-weight="700">short_term</text>
+      <text x="10" y="160" fill="#f5c451" font-weight="700">swing</text>
+      <text x="10" y="214" fill="#f07d8a" font-weight="700">positional</text>
+      <g fill="#0b1020" font-weight="700" font-size="12">
+        <text x="150" y="52"  text-anchor="middle">45 min</text>
+        <text x="230" y="106" text-anchor="middle">up to 7 days</text>
+        <text x="360" y="160" text-anchor="middle">up to 30 days</text>
+        <text x="550" y="214" text-anchor="middle">up to 120 days</text>
+      </g>
+      <g fill="#9aa7c4" font-size="11.5">
+        <text x="186" y="52">1-min bars · sq-off 15:15 · η=0.10 · sleeve 40%</text>
+        <text x="346" y="106">30-min bars · η=0.08 · sleeve 25% · min PT 2%</text>
+        <text x="606" y="160">daily bars · η=0.06 · sleeve 20% · min PT 3%</text>
+        <text x="610" y="214" fill="#0b1020" font-weight="700">weekly bars · η=0.05 · sleeve 15% · min PT 5%</text>
+      </g>
+    </g>
+  </svg>
+  <figcaption>Max-hold windows to scale. η is the learning rate — deliberately smaller for slow
+  horizons, which see few, noisy outcomes (overfitting protection).</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>Horizon</th><th>Bars</th><th>Max hold</th><th class="num">PT / SL (×ATR)</th>
+        <th class="num">Sleeve</th><th class="num">η</th><th class="num">Min profit</th><th class="num">Cooldown</th></tr>
+    <tr><td>intraday</td><td>1-minute</td><td>45 min (hard square-off 15:15)</td><td class="num">2.5 / 1.25</td>
+        <td class="num">40%</td><td class="num">0.10</td><td class="num">—</td><td class="num">10 min</td></tr>
+    <tr><td>short_term</td><td>30-minute</td><td>7 days</td><td class="num">3.0 / 1.5</td>
+        <td class="num">25%</td><td class="num">0.08</td><td class="num">2%</td><td class="num">2 h</td></tr>
+    <tr><td>swing</td><td>daily</td><td>30 days</td><td class="num">4.0 / 2.0</td>
+        <td class="num">20%</td><td class="num">0.06</td><td class="num">3%</td><td class="num">1 d</td></tr>
+    <tr><td>positional</td><td>weekly</td><td>120 days</td><td class="num">6.0 / 3.0</td>
+        <td class="num">15%</td><td class="num">0.05</td><td class="num">5%</td><td class="num">5 d</td></tr>
+  </table>
+
+  <p class="mut">Each horizon owns its native bars, its own Wilder ATR, its own weight vector,
+  its own conviction threshold p*, and its own trade record. Horizons can be switched on/off
+  independently (<code>HORIZON_ENABLED</code>); a disabled horizon's open positions are still
+  managed to exit — never orphaned — and its learner still learns from those exits.</p>
+</section>
+
+<!-- ============================== 3 EVIDENCE ============================== -->
+<section id="evidence">
+  <div class="kicker">Section 3</div>
+  <h2>The Eight Evidence Features</h2>
+
+  <div class="beginner">
+    Each clue is a number: positive = bullish, negative = bearish, zero = silent. Before
+    fusing, every clue is squashed with <code>tanh(x/2)</code> so it lives in (−1, +1) — one
+    crazy outlier can never dominate the verdict. Three clues (x₆–x₈) come from the
+    <i>options market</i>: what option traders are paying and positioning tells us what the
+    big money believes about the stock.
+  </div>
+
+  <div class="formula">φᵢ = tanh(xᵢ / 2)        every feature, every horizon, same squash</div>
+
+  <div class="grid g2">
+    <div class="card"><h4>x₁ · Auction Breakout Strength</h4>
+      <div class="formula">x₁ = (Close − POC) / ATR</div>
+      <p class="mut">POC = the price where the most volume traded (the market's "fair price"
+      magnet from the volume profile). Trading far above it, measured in ATR units, signals
+      the auction is migrating up.</p>
+      <div class="ex"><b>Example</b> Close 1480, POC 1455, ATR 12 → x₁ = +2.08 → φ₁ = +0.78 (strongly bullish)</div></div>
+
+    <div class="card"><h4>x₂ · Value-Area Acceptance</h4>
+      <div class="formula">x₂ = (Close − VAH) / ATR</div>
+      <p class="mut">VAH = top of the 70% value area. Closing above it means buyers are
+      <i>accepting</i> higher prices, not just probing them.</p>
+      <div class="ex"><b>Example</b> Close 1480, VAH 1472, ATR 12 → x₂ = +0.67 → φ₂ = +0.32</div></div>
+
+    <div class="card"><h4>x₃ · Participation Anomaly</h4>
+      <div class="formula">x₃ = z-score of volume over trailing 20 bars</div>
+      <p class="mut">Unusual crowd participation. A move on 3σ volume means far more than the
+      same move on quiet volume.</p>
+      <div class="ex"><b>Example</b> This bar's volume is 2.4σ above its 20-bar mean → φ₃ = +0.83</div></div>
+
+    <div class="card"><h4>x₄ · Momentum Quality</h4>
+      <div class="formula">x₄ = t-stat of last 20 log returns
+   = mean(r) / (std(r)/√20)</div>
+      <p class="mut">Rewards <i>steady drift</i>; punishes one noisy spike of equal total move.
+      Scale-free, so it means the same thing on 1-min and weekly bars.</p>
+      <div class="ex"><b>Example</b> 20 bars drifting up smoothly: t = +2.1 → φ₄ = +0.78.
+      Same total gain from one spike bar: t ≈ +0.5 → φ₄ = +0.24.</div></div>
+
+    <div class="card"><h4>x₅ · Regime Detector (Variance Ratio)</h4>
+      <div class="formula">x₅ = ln VR(5),  VR(q) = Var(r_q) / (q·Var(r₁))</div>
+      <p class="mut">Lo–MacKinlay test. Trending markets: multi-bar variance grows faster than
+      1-bar variance → VR &gt; 1 → positive. Mean-reverting chop → negative. Random walk → 0.
+      It tells the engine <i>whether to trust breakout evidence at all</i>.</p>
+      <div class="ex"><b>Example</b> VR = 1.35 → x₅ = +0.30 → φ₅ = +0.15 (mild trending regime)</div></div>
+
+    <div class="card"><h4>x₆ · Volumetric Imbalance (options flow)</h4>
+      <div class="formula">x₆ = ln(bid_qty / ask_qty)   on the ATM call</div>
+      <p class="mut">Are buyers or sellers stacked deeper in the ATM call? Depth imbalance
+      leans toward informed demand for upside.</p>
+      <div class="ex"><b>Example</b> bid 14,300 vs ask 6,100 → x₆ = +0.85 → φ₆ = +0.40</div></div>
+
+    <div class="card"><h4>x₇ · Strike-Specific PCR Tilt (Δ-mode)</h4>
+      <div class="formula">level = −ln(PE_OI / CE_OI)  at ATM strike
+x₇ = Δlevel over 30 min, self-normalised
+     by EWMA of its own |Δ|  (λ=0.97)</div>
+      <p class="mut">Fresh positioning, not stale stock. OI accumulates, so the <i>level</i> is a
+      saturating integral of past flow — near-constant at entry time. The signal lives in the
+      windowed <i>change</i>, made scale-free by self-normalisation. (Battery finding 2026-06-12:
+      level mode had zero discrimination.)</p>
+      <div class="ex"><b>Example</b> −ln(PCR) rose 0.040 in 30 min; typical 30-min change is
+      0.018 → x₇ = +2.2 → φ₇ = +0.80 (call writers/long-call flow building fast)</div></div>
+
+    <div class="card"><h4>x₈ · Variance Risk Premium</h4>
+      <div class="formula">x₈ = (RV_h − IV) / IV
+RV_h = EWMA realised vol (λ=0.94) on the
+       horizon's own bars, annualised with
+       that bar's frequency</div>
+      <p class="mut">Realised motion vs the fear priced into options. RV &gt; IV: the stock moves
+      more than options charge for — cheap convexity environment, favourable. Always compares
+      like with like (each horizon annualises with its own factor: 375×252, 12.5×252, 252, 52).</p>
+      <div class="ex"><b>Example</b> RV 31%, IV 26% → x₈ = +0.19 → φ₈ = +0.10</div></div>
+  </div>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 230" width="100%">
+    <text x="250" y="22" fill="#e8ecf6" font-size="14" font-weight="700" text-anchor="middle">Volume profile: POC &amp; value area (x₁, x₂)</text>
+    <!-- profile bars -->
+    <g fill="#4fd1c5" opacity=".8">
+      <rect x="60" y="40"  width="40"  height="14"/><rect x="60" y="58"  width="90"  height="14"/>
+      <rect x="60" y="76"  width="150" height="14"/><rect x="60" y="94"  width="260" height="14"/>
+      <rect x="60" y="112" width="330" height="14" fill="#f5c451"/><rect x="60" y="130" width="240" height="14"/>
+      <rect x="60" y="148" width="130" height="14"/><rect x="60" y="166" width="70"  height="14"/>
+      <rect x="60" y="184" width="30"  height="14"/>
+    </g>
+    <text x="400" y="123" fill="#f5c451" font-size="12" font-weight="700">← POC (most-traded price)</text>
+    <line x1="55" y1="72" x2="455" y2="72" stroke="#9aa7c4" stroke-dasharray="5 4"/>
+    <text x="460" y="76" fill="#9aa7c4" font-size="12">VAH (top of 70% value)</text>
+    <line x1="55" y1="166" x2="455" y2="166" stroke="#9aa7c4" stroke-dasharray="5 4"/>
+    <text x="460" y="170" fill="#9aa7c4" font-size="12">VAL</text>
+    <circle cx="530" cy="52" r="5" fill="#6ee7a0"/>
+    <text x="542" y="56" fill="#6ee7a0" font-size="12" font-weight="700">Close above VAH → acceptance (x₂ &gt; 0)</text>
+    <!-- right: tanh squash -->
+    <text x="800" y="22" fill="#e8ecf6" font-size="14" font-weight="700" text-anchor="middle">The tanh squash</text>
+    <g transform="translate(660,40)">
+      <line x1="0" y1="80" x2="280" y2="80" stroke="#2a3558"/>
+      <line x1="140" y1="10" x2="140" y2="150" stroke="#2a3558"/>
+      <path d="M 10 145 C 80 145 100 80 140 80 C 180 80 200 15 270 15" stroke="#f5c451" stroke-width="3" fill="none"/>
+      <text x="270" y="35" fill="#9aa7c4" font-size="11" text-anchor="end">+1 cap</text>
+      <text x="12" y="140" fill="#9aa7c4" font-size="11">−1 cap</text>
+      <text x="140" y="168" fill="#9aa7c4" font-size="11" text-anchor="middle">raw xᵢ → bounded φᵢ : outliers can't shout</text>
+    </g>
+  </svg>
+  <figcaption>Left: the proportional-overlap volume profile distributes each bar's volume across
+  every price bin its [low, high] range touches. Right: why one wild feature can never dominate.</figcaption>
+  </figure>
+
+  <div class="warn"><b>Degraded mode.</b> For cash-only symbols (or when the chain fetch fails),
+  x₆–x₈ are set to 0 and the engine runs structure-only — but the entry bar is <i>raised</i> to
+  <code>max(p*, 0.65)</code>. Thinner evidence must never lower entry strictness.</div>
+</section>
+
+<!-- ============================== 4 FUSION ============================== -->
+<section id="fusion">
+  <div class="kicker">Section 4</div>
+  <h2>Fusion: from Eight Clues to One Calibrated Probability</h2>
+
+  <div class="beginner">
+    Think of a sceptical judge. She starts every case at "probably not" (27%). Each clue
+    pushes her up or down, with a learned weight per clue. Then she peeks at the other three
+    detectives: if they agree, she nudges her verdict slightly toward theirs — but the nudge
+    is capped, so peer pressure can never overturn her own evidence. Finally, she corrects
+    for her own historical over/under-confidence before announcing the number.
+  </div>
+
+  <h3>Step 1 — Weighted log-odds with a sceptical prior</h3>
+  <div class="formula">L_h = b₀ + Σᵢ w_h,i · φ_h,i           b₀ = −1.0  (prior ≈ 27%)</div>
+
+  <h3>Step 2 — Bounded cross-horizon coupling</h3>
+  <div class="formula">L′_h = L_h + κ · tanh( mean_{g≠h} L_g / 2 )      κ = 0.30</div>
+  <p class="mut">When independent resolutions of the same market agree, every horizon's
+  posterior is nudged that way — but the bonus is bounded by ±κ. Coupling breaks ties; it can
+  never overturn strong local evidence.</p>
+
+  <h3>Step 3 — Online Platt calibration</h3>
+  <div class="formula">p_cal = σ(a·L′ + b)     a=1, b=0 at cold start (identity)
+after each closed trade (y = 1 if R&gt;0):
+  a ← a − 0.05·(p̂−y)·L′     bounded a ∈ [0.2, 3]
+  b ← b − 0.05·(p̂−y)        bounded b ∈ [−2, 2]</div>
+  <p class="mut">A model that says "65%" but wins 30% of the time is lying to the Kelly sizer
+  and the cost gate. Calibration learns the lie and deflates it: overconfidence shrinks
+  <code>a</code> and pushes <code>b</code> negative. <b>p_cal drives every downstream
+  decision</b>; raw p is logged alongside.</p>
+
+  <div class="ex"><b>Worked example (swing horizon).</b><br>
+  φ = [structure +0.78, value +0.32, vol +0.83, mom +0.78, vr +0.15, flow +0.40, pcr +0.80, vrp +0.10]<br>
+  w = [0.9, 0.8, 0.6, 1.2, 1.0, 0.5, 0.7, 0.7] (swing priors)<br>
+  Σ w·φ = 0.702+0.256+0.498+0.936+0.150+0.200+0.560+0.070 = <b>+3.37</b><br>
+  L = −1.0 + 3.37 = +2.37 → other horizons' mean L = +0.9 →
+  L′ = 2.37 + 0.30·tanh(0.45) = <b>+2.50</b><br>
+  Calibration (a=0.92, b=−0.10): p_cal = σ(0.92·2.50 − 0.10) = σ(2.20) = <b>0.90</b>.
+  Strong confluence — and it still has six gates to survive.</div>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 240" width="100%">
+    <g font-size="12.5">
+      <!-- four horizon nodes -->
+      <circle cx="140" cy="60"  r="34" fill="#1a2342" stroke="#7aa2f7" stroke-width="2"/>
+      <circle cx="140" cy="180" r="34" fill="#1a2342" stroke="#4fd1c5" stroke-width="2"/>
+      <circle cx="320" cy="60"  r="34" fill="#1a2342" stroke="#f5c451" stroke-width="2"/>
+      <circle cx="320" cy="180" r="34" fill="#1a2342" stroke="#f07d8a" stroke-width="2"/>
+      <text x="140" y="56" text-anchor="middle" fill="#7aa2f7" font-weight="700">intra</text>
+      <text x="140" y="72" text-anchor="middle" fill="#e8ecf6">L=+0.4</text>
+      <text x="140" y="176" text-anchor="middle" fill="#4fd1c5" font-weight="700">short</text>
+      <text x="140" y="192" text-anchor="middle" fill="#e8ecf6">L=+1.1</text>
+      <text x="320" y="56" text-anchor="middle" fill="#f5c451" font-weight="700">swing</text>
+      <text x="320" y="72" text-anchor="middle" fill="#e8ecf6">L=+2.37</text>
+      <text x="320" y="176" text-anchor="middle" fill="#f07d8a" font-weight="700">posn</text>
+      <text x="320" y="192" text-anchor="middle" fill="#e8ecf6">L=+1.2</text>
+      <g stroke="#6ee7a0" stroke-width="1.6" opacity=".75">
+        <line x1="174" y1="60" x2="286" y2="60"/><line x1="174" y1="180" x2="286" y2="180"/>
+        <line x1="140" y1="94" x2="140" y2="146"/><line x1="320" y1="94" x2="320" y2="146"/>
+        <line x1="165" y1="85" x2="295" y2="158"/><line x1="165" y1="158" x2="295" y2="85"/>
+      </g>
+      <text x="230" y="130" fill="#6ee7a0" text-anchor="middle" font-weight="700">±κ tanh(·)</text>
+      <text x="230" y="226" fill="#9aa7c4" text-anchor="middle">agreement bonus — bounded, advisory</text>
+      <!-- sigmoid panel -->
+      <g transform="translate(520,20)">
+        <text x="230" y="6" fill="#e8ecf6" font-weight="700" text-anchor="middle" font-size="14">Calibrated sigmoid: L′ → p</text>
+        <line x1="0" y1="170" x2="460" y2="170" stroke="#2a3558"/>
+        <line x1="230" y1="20" x2="230" y2="170" stroke="#2a3558"/>
+        <path d="M 10 165 C 130 162 180 120 230 95 C 280 70 330 30 450 24" stroke="#f5c451" stroke-width="3" fill="none"/>
+        <line x1="0" y1="56" x2="460" y2="56" stroke="#f07d8a" stroke-dasharray="6 4"/>
+        <text x="455" y="50" fill="#f07d8a" font-size="11.5" text-anchor="end">p* gate (~0.70, adaptive)</text>
+        <circle cx="372" cy="44" r="6" fill="#6ee7a0"/>
+        <text x="372" y="32" fill="#6ee7a0" font-size="11.5" text-anchor="middle" font-weight="700">p=0.90 ✓</text>
+        <circle cx="262" cy="88" r="6" fill="#f07d8a"/>
+        <text x="262" y="110" fill="#f07d8a" font-size="11.5" text-anchor="middle">p=0.62 ✗</text>
+        <text x="230" y="192" fill="#9aa7c4" font-size="11.5" text-anchor="middle">most evaluations land below the bar — silence is a position</text>
+      </g>
+    </g>
+  </svg>
+  <figcaption>Left: the coupling mesh — every horizon sees the average opinion of the others,
+  bounded by ±0.30 log-odds. Right: only calibrated conviction above the adaptive bar trades.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================== 5 GATES ============================== -->
+<section id="gates">
+  <div class="kicker">Section 5</div>
+  <h2>Six Hard Gates — Conviction Is Not Enough</h2>
+
+  <div class="beginner">
+    Even at 90% confidence the engine refuses to trade if the trade is structurally bad:
+    too expensive to execute, too small a target to bother, options too panicked, or it
+    just exited the same setup. Every rejection is counted (gate telemetry), so "why didn't
+    it trade?" is always answerable with data, never a guess.
+  </div>
+
+  <table>
+    <tr><th></th><th>Gate</th><th>Rule</th><th>Why it exists</th></tr>
+    <tr><td><span class="num-badge">1</span></td><td>Conviction</td><td><code>p_cal ≥ p*</code> (adaptive, base 0.70, bounds 0.55–0.80; floor 0.65 when options plane is off)</td><td>Only high-quality confluence trades</td></tr>
+    <tr><td><span class="num-badge">2</span></td><td>IV cap</td><td>ATM call IV &lt; cap (RELIANCE 75, others 70)</td><td>Don't buy into panic-priced vol regimes</td></tr>
+    <tr><td><span class="num-badge">3</span></td><td>Cooldown</td><td>10 min / 2 h / 1 d / 5 d after any exit in that (horizon, symbol)</td><td>No churning back into a decaying setup</td></tr>
+    <tr><td><span class="num-badge">4</span></td><td>Min profit</td><td><code>rt·ATR/entry ≥</code> 2% / 3% / 5% (short/swing/posn)</td><td>NSE cash trades with sub-cost best case never earn the slot</td></tr>
+    <tr><td><span class="num-badge">5</span></td><td>Cost gate</td><td><code>p·β − (1−p) − 2·COST/1e4·entry/stop ≥ 0.20R</code></td><td>Edge must survive round-trip friction</td></tr>
+    <tr><td><span class="num-badge">6</span></td><td>Kelly &gt; 0</td><td>positive optimal fraction after all the above</td><td>Never size a trade the math says to skip</td></tr>
+  </table>
+
+  <div class="ex"><b>Cost gate worked example.</b> p = 0.72, β = R_T/R_S = 2.0, entry ₹1480,
+  stop distance = 1.5×ATR = ₹18, costs 10 bps round-trip.<br>
+  E[R_gross] = 0.72×2.0 − 0.28 = <b>+1.16R</b> ·
+  cost_R = 2×0.0010×1480/18 = <b>0.164R</b> ·
+  net = <b>+1.00R ≥ 0.20R ✓</b><br>
+  Same setup in a dead-vol regime with ATR ₹4: cost_R = 0.74R → net +0.42R… still passes, but
+  at ATR ₹2.2 cost_R = 1.35R → <b>blocked</b>. The gate self-regulates with volatility: quiet
+  tape suppresses trading; vol expansion re-enables it.</div>
+</section>
+
+<!-- ============================== 6 SIZING ============================== -->
+<section id="sizing">
+  <div class="kicker">Section 6</div>
+  <h2>Capital Sleeves &amp; Fractional Kelly</h2>
+
+  <div class="beginner">
+    The capital (₹10,00,000 paper) is split into four sealed buckets — one per horizon — so
+    a bad week for the fast brain can never drain the slow brain's funds. Within a bucket,
+    bet size follows Kelly's formula for "optimal growth", then takes only a quarter of it
+    (full Kelly is famously violent), and never risks more than 5% of the bucket on one trade.
+  </div>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 200" width="100%">
+    <g font-size="13">
+      <rect x="40"  y="60" width="360" height="58" rx="9" fill="#7aa2f7" opacity=".9"/>
+      <rect x="404" y="60" width="225" height="58" rx="9" fill="#4fd1c5" opacity=".9"/>
+      <rect x="633" y="60" width="180" height="58" rx="9" fill="#f5c451" opacity=".9"/>
+      <rect x="817" y="60" width="135" height="58" rx="9" fill="#f07d8a" opacity=".9"/>
+      <g fill="#0b1020" font-weight="700" text-anchor="middle">
+        <text x="220" y="85">intraday 40%</text><text x="220" y="103">₹4,00,000</text>
+        <text x="516" y="85">short_term 25%</text><text x="516" y="103">₹2,50,000</text>
+        <text x="723" y="85">swing 20%</text><text x="723" y="103">₹2,00,000</text>
+        <text x="884" y="85">posn 15%</text><text x="884" y="103">₹1,50,000</text>
+      </g>
+      <text x="510" y="40" fill="#e8ecf6" font-weight="700" text-anchor="middle" font-size="14">CAPITAL ₹10,00,000 — sealed sleeves; a horizon may never draw on another's</text>
+      <text x="510" y="150" fill="#9aa7c4" text-anchor="middle">stake = min( 0.25 × f*, 5% of sleeve ) · qty = stake ÷ rupee-distance-to-stop</text>
+      <text x="510" y="172" fill="#9aa7c4" text-anchor="middle">f* = max(0, p − (1−p)/β) — the Kelly optimal fraction for a β payoff bet</text>
+    </g>
+  </svg>
+  <figcaption>Sleeve isolation + quarter-Kelly + 5% risk cap = three independent brakes.</figcaption>
+  </figure>
+
+  <div class="ex"><b>Sizing worked example (swing).</b> p = 0.72, β = 2.0 →
+  f* = 0.72 − 0.28/2 = <b>0.58</b> → quarter-Kelly 0.145 → capped at <b>0.05</b> (5% sleeve risk).<br>
+  Sleeve ₹2,00,000 → risk budget ₹10,000 → stop distance ₹18 → qty = <b>555 shares</b>
+  (≈₹8.2L notional, risking ₹10k if the initial stop is hit — 1R = ₹10,000).</div>
+</section>
+
+<!-- ============================== 7 EXITS ============================== -->
+<section id="exits">
+  <div class="kicker">Section 7</div>
+  <h2>Triple-Barrier Exits with a Conditional Time Stop</h2>
+
+  <div class="beginner">
+    Every position is born inside a box with three walls: a profit target above, a stop-loss
+    below, and a time limit ahead. A fourth mechanism — the chandelier trail — drags the stop
+    upward once the trade has moved in our favour, locking in gains. The clever part: the time
+    wall isn't a dumb clock. When time runs out, the engine <i>re-asks the market</i> whether
+    the original thesis is still alive, and only then decides to extend or exit.
+  </div>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 320" width="100%">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ee7a0"/></marker></defs>
+    <g font-size="12.5">
+      <!-- axes-ish -->
+      <line x1="60" y1="270" x2="960" y2="270" stroke="#2a3558"/>
+      <!-- barriers -->
+      <line x1="60" y1="70"  x2="700" y2="70"  stroke="#6ee7a0" stroke-width="2" stroke-dasharray="8 5"/>
+      <text x="65" y="62" fill="#6ee7a0" font-weight="700">PROFIT TARGET = entry + rt·ATR</text>
+      <line x1="60" y1="230" x2="380" y2="230" stroke="#f07d8a" stroke-width="2" stroke-dasharray="8 5"/>
+      <text x="65" y="248" fill="#f07d8a" font-weight="700">INITIAL STOP = entry − rs·ATR</text>
+      <line x1="700" y1="40" x2="700" y2="270" stroke="#f5c451" stroke-width="2" stroke-dasharray="4 5"/>
+      <text x="708" y="56" fill="#f5c451" font-weight="700">TIME BARRIER</text>
+      <text x="708" y="74" fill="#9aa7c4">re-underwrite:</text>
+      <text x="708" y="90" fill="#9aa7c4">p_now ≥ 0.55 → extend</text>
+      <text x="708" y="106" fill="#9aa7c4">else → TIME_EXIT</text>
+      <!-- entry -->
+      <circle cx="60" cy="160" r="6" fill="#7aa2f7"/>
+      <text x="48" y="146" fill="#7aa2f7" font-weight="700">ENTRY</text>
+      <!-- price path -->
+      <path d="M 60 160 L 110 175 L 150 150 L 190 165 L 230 120 L 270 135 L 310 95 L 350 115 L 400 85 L 450 100 L 500 78 L 545 95 L 590 110 L 640 125"
+            stroke="#e8ecf6" stroke-width="2.4" fill="none"/>
+      <!-- trail steps -->
+      <path d="M 230 205 L 310 205 L 310 168 L 400 168 L 400 152 L 500 152 L 500 142 L 640 142"
+            stroke="#f5c451" stroke-width="2.4" fill="none"/>
+      <text x="245" y="222" fill="#f5c451">trail arms at +1.5·ATR, then SL = HWM − trail·ATR (only ratchets up)</text>
+      <circle cx="640" cy="125" r="6" fill="#f5c451"/>
+      <text x="652" y="130" fill="#f5c451" font-weight="700">TRAILED exit</text>
+      <text x="652" y="147" fill="#9aa7c4">(profit locked)</text>
+      <!-- outcome labels -->
+      <text x="510" y="300" fill="#9aa7c4" text-anchor="middle">outcomes: PROFIT · LOSS · TRAILED · TIME_EXIT · SQUARE_OFF (intraday 15:15)</text>
+    </g>
+  </svg>
+  <figcaption>One trade's life. The high-water mark drags the stop up behind price; whichever
+  wall is touched first names the outcome.</figcaption>
+  </figure>
+
+  <h3>The re-underwriting time stop (conditional vertical barrier)</h3>
+  <p>When max-hold is reached, "time elapsed" is replaced by "information decayed":</p>
+  <div class="grid g3">
+    <div class="card"><h4>Live edge</h4><p class="mut">Re-score the thesis with fresh
+      horizon-native evidence. <code>p_now ≥ 0.55</code> → grant one more hold window;
+      below → exit. The market, not the clock, decides.</p></div>
+    <div class="card"><h4>Gap replay fallback</h4><p class="mut">No fresh data (outage/restart
+      replay)? Failure-to-perform test: extend only if the trade ever progressed ≥ 0.5R.
+      A moving trade keeps its slot; a sideways zombie is cut.</p></div>
+    <div class="card"><h4>Extension budgets</h4><p class="mut">intraday 3 · short_term 2 ·
+      swing 2 · positional 1. Exhausted → TIME_EXIT regardless of conviction. Budgets persist
+      across restarts.</p></div>
+  </div>
+
+  <h3>Bar-walk reconciliation (the crash-safety engine)</h3>
+  <p class="mut">Every exit decision replays 1-minute bars <i>newer than the position's last
+  processed bar</i>. Healthy cycle: 1–2 bars. After an outage or restart: the entire gap —
+  trail arming, stop lifts, barrier hits and square-offs all land on the price path that
+  actually happened, never on the post-gap price alone. Replay is idempotent (no bar processed
+  twice) and fills are gap-realistic with pessimistic intra-bar ordering: square-off/time at
+  the open first, then <b>stop before target</b>; a gap through a barrier fills at the open,
+  never at the price the market skipped.</p>
+</section>
+
+<!-- ============================== 8 LEARNING ============================== -->
+<section id="learning">
+  <div class="kicker">Section 8</div>
+  <h2>The Self-Learning Loop — Three Adaptations per Horizon</h2>
+
+  <div class="beginner">
+    After every closed trade, three things update — only for the horizon that owned the trade:
+    <b>(1)</b> the weights of the eight clues (clues that "spoke up" before wins get louder;
+    before losses, quieter), <b>(2)</b> the entry bar p* (losses raise it fast, wins lower it
+    slowly — the agent gets pickier when it's wrong), and <b>(3)</b> the calibration map
+    (its honesty about its own confidence). The intraday brain never contaminates the
+    positional brain.
+  </div>
+
+  <figure class="svgbox">
+  <svg viewBox="0 0 1020 300" width="100%">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ee7a0"/></marker></defs>
+    <g font-size="12.5">
+      <g transform="translate(330,20)">
+        <rect x="0" y="0" width="360" height="50" rx="10" fill="#1a2342" stroke="#f5c451"/>
+        <text x="180" y="22" text-anchor="middle" fill="#f5c451" font-weight="700">TRADE CLOSES</text>
+        <text x="180" y="40" text-anchor="middle" fill="#e8ecf6">realised R-multiple, clipped to [−2, +3]</text>
+      </g>
+      <g stroke="#6ee7a0" stroke-width="2" fill="none">
+        <path d="M 430 70 L 180 110" marker-end="url(#ar3)"/>
+        <path d="M 510 70 L 510 110" marker-end="url(#ar3)"/>
+        <path d="M 590 70 L 840 110" marker-end="url(#ar3)"/>
+      </g>
+      <rect x="40"  y="115" width="290" height="120" rx="10" fill="#1a2342" stroke="#4fd1c5"/>
+      <text x="185" y="138" text-anchor="middle" fill="#4fd1c5" font-weight="700">① WEIGHTS (exp-gradient)</text>
+      <text x="185" y="160" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">wᵢ ← clip(wᵢ·exp(η·R·φᵢ), 0.1, 2.5)</text>
+      <text x="185" y="182" text-anchor="middle" fill="#9aa7c4">then renormalise: Σwᵢ conserved</text>
+      <text x="185" y="202" text-anchor="middle" fill="#9aa7c4">(evidence-mass conservation —</text>
+      <text x="185" y="220" text-anchor="middle" fill="#9aa7c4">divergence impossible by construction)</text>
+      <rect x="365" y="115" width="290" height="120" rx="10" fill="#1a2342" stroke="#f5c451"/>
+      <text x="510" y="138" text-anchor="middle" fill="#f5c451" font-weight="700">② ENTRY BAR p*</text>
+      <text x="510" y="162" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">loss: p* ← min(0.80, p*+0.015)</text>
+      <text x="510" y="182" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">win:  p* ← max(0.55, p*−0.005)</text>
+      <text x="510" y="206" text-anchor="middle" fill="#9aa7c4">asymmetric: pain teaches 3× faster</text>
+      <rect x="690" y="115" width="290" height="120" rx="10" fill="#1a2342" stroke="#f07d8a"/>
+      <text x="835" y="138" text-anchor="middle" fill="#f07d8a" font-weight="700">③ CALIBRATION (Platt)</text>
+      <text x="835" y="162" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">a ← a − 0.05·(p̂−y)·L</text>
+      <text x="835" y="182" text-anchor="middle" fill="#cfe3ff" class="mono" font-size="11.5">b ← b − 0.05·(p̂−y)</text>
+      <text x="835" y="206" text-anchor="middle" fill="#9aa7c4">deflates predicted win-rates to reality</text>
+      <g stroke="#6ee7a0" stroke-width="2" fill="none">
+        <path d="M 510 235 L 510 262 L 510 262" />
+      </g>
+      <text x="510" y="282" text-anchor="middle" fill="#6ee7a0" font-weight="700">→ next evaluation uses the updated brain · state persisted to SQLite, survives restarts</text>
+    </g>
+  </svg>
+  <figcaption>Strict isolation: a closed swing trade updates only the swing learner. Weights,
+  p* and calibration are re-hydrated from <code>brain_state</code> on startup.</figcaption>
+  </figure>
+
+  <div class="ex"><b>Weight-update worked example (short_term, η = 0.08).</b><br>
+  Trade closes at R = +1.8. At entry, φ_mom = +0.78, φ_pcr = +0.05.<br>
+  mom: w ← 0.9 × exp(0.08×1.8×0.78) = 0.9 × 1.119 = <b>1.007</b> (louder — it spoke and was right)<br>
+  pcr: w ← 0.8 × exp(0.08×1.8×0.05) = 0.8 × 1.007 = <b>0.806</b> (nearly silent at entry → barely moves)<br>
+  Then all eight weights are scaled so their sum returns to the horizon's initial mass —
+  for a feature to grow, another must shrink. Conviction is zero-sum.</div>
+
+  <details><summary>Why exponentiated-gradient (and not plain gradient descent)?</summary>
+    <div class="inner"><p class="mut">EG updates are multiplicative, so weights stay positive
+    and bounded after clipping, and the renormalisation step conserves total evidence mass.
+    The learner can re-rank features but can never inflate overall conviction — a structural
+    guard against the classic failure mode of online learners that grow ever more confident.
+    The asymmetric R-clip [−2, +3] lets big wins teach slightly more than big losses can panic.</p>
+    <p class="mut"><b>Diagnostics:</b> alongside deployed weights, each learner accumulates
+    <i>earned credit</i> per feature (Ση·R·φᵢ before clipping/renormalisation) — the learner's
+    verdict free of dilution. Judge attribution on credit; judge deployment on net Δw. Gate
+    telemetry (<code>GATE_STATS</code>) counts every evaluation outcome, so "why didn't it
+    trade" is measured, not guessed.</p></div>
+  </details>
+</section>
+
+<!-- ============================== 9 NOVELTY ============================== -->
+<section id="novelty">
+  <div class="kicker">Section 9</div>
+  <h2>What's Actually Novel Here</h2>
+  <div class="grid g2">
+    <div class="card"><h4>Self-similar multi-horizon design</h4><p class="mut">Not four
+      strategies — one pipeline at four resolutions, with priors encoding scale intuition and
+      learning correcting it. The hypothesis "the same evidence matters differently at
+      different scales" is testable per horizon, in the weights.</p></div>
+    <div class="card"><h4>Bounded agreement coupling</h4><p class="mut">Ensemble members
+      usually vote or average — Hermes' horizons stay sovereign. κ·tanh(·) lets confluence
+      break ties while making it mathematically impossible for peer pressure to overturn
+      local evidence.</p></div>
+    <div class="card"><h4>Conditional time barrier</h4><p class="mut">Standard triple-barrier
+      uses a clock. Hermes re-underwrites: at max-hold it re-scores the thesis with fresh
+      evidence and lets the market decide between extension and exit — with hard extension
+      budgets so labels stay bounded.</p></div>
+    <div class="card"><h4>Evidence-mass conservation</h4><p class="mut">The EG learner
+      renormalises weight mass after every update. Features compete zero-sum for influence;
+      runaway self-confidence is structurally impossible, not just discouraged.</p></div>
+    <div class="card"><h4>Cost-aware, vol-self-regulating entries</h4><p class="mut">The cost
+      gate expresses friction in R-units of the actual stop distance, so quiet regimes
+      automatically suppress trading and vol expansion re-enables it — no volatility filter
+      needed; it falls out of the arithmetic.</p></div>
+    <div class="card"><h4>Honesty machinery</h4><p class="mut">Online Platt calibration feeds
+      <i>deflated</i> probabilities to Kelly and the cost gate. ΔPCR self-normalisation fixes
+      a real battery-discovered flaw (OI levels saturate). Earned-credit diagnostics separate
+      "what the learner believes" from "what renormalisation deployed".</p></div>
+  </div>
+</section>
+
+<!-- ============================== 10 SETUP ============================== -->
+<section id="setup">
+  <div class="kicker">Section 10</div>
+  <h2>Setup, Data &amp; Operations</h2>
+
+  <h3>Data pipeline (Upstox official endpoints)</h3>
+  <table>
+    <tr><th>Need</th><th>Endpoint</th><th>Cadence</th></tr>
+    <tr><td>Intraday bars (today)</td><td><code>GET /v3/historical-candle/intraday/{key}/{unit}/{interval}</code></td><td>per cycle, demand-aware</td></tr>
+    <tr><td>History bars</td><td><code>GET /v3/historical-candle/{key}/{unit}/{interval}/{to}/{from}</code></td><td>30m: 20d · daily: 300d · weekly: 750d lookback</td></tr>
+    <tr><td>Nearest expiry</td><td><code>GET /v2/option/contract</code></td><td>cached per underlying per day</td></tr>
+    <tr><td>ATM chain row</td><td><code>GET /v2/option/chain</code></td><td>cached 60 s, shared by all horizons</td></tr>
+  </table>
+  <p class="mut">All calls route through <code>upstox_ratelimit.http_get</code> — a triple-window
+  token bucket (45/s · 450/min · 1900/30-min) with Retry-After-aware 429 backoff, making a
+  quota breach impossible. The main loop polls demand-aware: an idle symbol (no open position,
+  no due horizon) costs zero API calls that cycle — at 100 short_term symbols that is
+  ~500 requests/30 min, a quarter of quota. Token from <code>UPSTOX_ACCESS_TOKEN</code>
+  (expires daily; never hardcode). IV from the chain is already in percent — never multiply
+  by 100. Never hand-build NSE_FO symbols.</p>
+
+  <h3>Scheduling &amp; resilience</h3>
+  <div class="grid g3">
+    <div class="card"><h4>In session (09:15–15:30 IST)</h4><p class="mut">60 s cycle: fetch
+      spot → reconcile exits (all horizons) → evaluate entries on each horizon's cadence
+      (1 min / 30 min / daily / daily). Out of session: standby 300 s.</p></div>
+    <div class="card"><h4>Disruption</h4><p class="mut">Data fetch fails → halt signal
+      generation immediately (never act on stale data), flag outage, take no fresh entries
+      while degraded.</p></div>
+    <div class="card"><h4>Recovery</h4><p class="mut">Backfill 1-min history across the gap
+      (up to 30 days), replay the missed path for every open position — barrier hits, trail
+      lifts and square-offs land where they actually happened.</p></div>
+  </div>
+
+  <h3>State &amp; files</h3>
+  <table>
+    <tr><th>What</th><th>Where</th><th>Survives restart?</th></tr>
+    <tr><td>Open positions (entry, SL, HWM, extensions)</td><td><code>open_positions</code> table, written on every mutation</td><td>✓ re-hydrated on startup</td></tr>
+    <tr><td>Closed-trade ledger (features, p, Kelly, R)</td><td><code>trades</code> table — <code>hermes_omnihorizon_v2.db</code></td><td>✓ (the learning corpus)</td></tr>
+    <tr><td>Brain (weights, p*, calibration a/b)</td><td><code>brain_state</code> table, per horizon</td><td>✓</td></tr>
+    <tr><td>Orchestration</td><td><code>sniper_agent_wrapper.py</code> — market-hours cron 09:15, assessment 15:30, NSE-holiday aware, <code>caffeinate</code></td><td>—</td></tr>
+  </table>
+
+  <h3>Validation ecosystem</h3>
+  <p class="mut"><b>BackTestAgent/backtest.py</b> — planted-edge synthetic Monte Carlo battery:
+  proves the engine finds edge where it is planted and finds <i>nothing</i> on pure noise
+  (null sanity). <b>RealBackTest/realbacktest.py</b> — replays the unmodified engine over real
+  Upstox history (real candles; options plane reconstructed: real OI → PCR, Black-Scholes
+  inversion of real premiums → IV, BVC flow proxy with honesty ablation), then judges it
+  against random-entry nulls, block-bootstrap p-values and deflated Sharpe before any live
+  promotion. Both harnesses patch only the clock and data feeds — the trading brain under
+  test is byte-identical to live.</p>
+
+  <div class="warn"><b>Caveats.</b> Slow horizons accumulate samples slowly — expect months of
+  paper trading before swing/positional weights are statistically meaningful (their small η is
+  deliberate). The engine is long-only on spot in paper mode; the options plane informs
+  evidence, no option orders are placed. Research software — not financial advice.</div>
+</section>
+
+<!-- ============================== 11 GLOSSARY ============================== -->
+<section id="glossary">
+  <div class="kicker">Section 11</div>
+  <h2>Beginner's Glossary</h2>
+  <div class="grid g2">
+    <div class="card"><h4>ATR (Average True Range)</h4><p class="mut">The stock's typical
+      bar-to-bar wiggle. Hermes measures every distance (targets, stops, trails) in ATRs, so
+      the same logic adapts to calm and wild stocks automatically.</p></div>
+    <div class="card"><h4>Log-odds</h4><p class="mut">Probability re-expressed so that adding
+      evidence = adding numbers. 0 ↔ 50%, +2.2 ↔ 90%, −1 ↔ 27%. The sigmoid σ converts back.</p></div>
+    <div class="card"><h4>Open Interest (OI) &amp; PCR</h4><p class="mut">OI = how many option
+      contracts exist at a strike. PCR = put OI ÷ call OI. Its <i>change</i> reveals where fresh
+      money is positioning right now.</p></div>
+    <div class="card"><h4>Implied Volatility (IV)</h4><p class="mut">The future turbulence the
+      option price itself implies. High IV = expensive insurance = fear. Hermes refuses entries
+      when ATM IV exceeds the symbol's cap.</p></div>
+    <div class="card"><h4>Kelly fraction</h4><p class="mut">The mathematically optimal bet size
+      for long-run growth given your edge and payoff. Betting full Kelly is a rollercoaster;
+      Hermes uses a quarter of it with a hard 5% cap.</p></div>
+    <div class="card"><h4>R-multiple</h4><p class="mut">Profit measured in units of what you
+      risked. Risked ₹10,000, made ₹18,000 → R = +1.8. All learning and reporting is in R, so
+      trades of different sizes are comparable.</p></div>
+    <div class="card"><h4>Triple barrier</h4><p class="mut">Profit wall, loss wall, time wall.
+      First touch labels the trade. The standard framing for honest trade outcomes (López de
+      Prado), here upgraded with a conditional time wall.</p></div>
+    <div class="card"><h4>Platt calibration</h4><p class="mut">A tiny two-parameter map that
+      converts a model's raw confidence into honest probability, learned from its own track
+      record. The difference between "I feel 70%" and "history says my 70% wins 70%".</p></div>
+  </div>
+</section>
+
+</div>
+<footer>Generated for SniperAgent · Hermes Omnihorizon v1.0 · research software, not financial advice</footer>
+</body>
+</html>

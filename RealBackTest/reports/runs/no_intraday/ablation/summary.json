@@ -1,0 +1,146 @@
+{
+  "tag": "no_intraday_ablation",
+  "start": "2024-06-01",
+  "end": "2026-06-10",
+  "horizons": [
+    "short_term",
+    "swing",
+    "positional"
+  ],
+  "symbols": [
+    "RELIANCE",
+    "HDFCBANK",
+    "ICICIBANK",
+    "TCS",
+    "SBIN"
+  ],
+  "cost_bps": 10.0,
+  "flow_ablation": true,
+  "open_left": [],
+  "gates": {
+    "short_term.evaluated": 32378,
+    "short_term.p_star": 32291,
+    "swing.evaluated": 2461,
+    "swing.p_star": 2452,
+    "positional.evaluated": 1779,
+    "positional.p_star": 1743,
+    "short_term.min_profit": 59,
+    "positional.entered": 14,
+    "short_term.entered": 14,
+    "short_term.already_open": 2258,
+    "short_term.cooldown": 14,
+    "swing.entered": 8,
+    "positional.already_open": 272682,
+    "positional.cooldown": 22,
+    "swing.already_open": 17162,
+    "swing.cooldown": 1
+  },
+  "dw": {
+    "short_term.structure": -0.07166989938281254,
+    "short_term.value": -0.06360688044765928,
+    "short_term.vol_anom": -0.036677445525703734,
+    "short_term.mom_t": -0.05817491004147768,
+    "short_term.vratio": 0.04965101100327185,
+    "short_term.flow": 0.03903780926870193,
+    "short_term.pcr": 0.10091109968914469,
+    "short_term.vrp": 0.04052921543653376,
+    "swing.structure": -0.07323485409958663,
+    "swing.value": -0.07923254644686317,
+    "swing.vol_anom": -0.04341590937647888,
+    "swing.mom_t": 0.012337383504026578,
+    "swing.vratio": 0.07120444134679116,
+    "swing.flow": 0.029563548703187115,
+    "swing.pcr": 0.041388968184461805,
+    "swing.vrp": 0.041388968184461805,
+    "positional.structure": 0.009004820779079825,
+    "positional.value": 0.009109249468698177,
+    "positional.vol_anom": -0.010471314161758838,
+    "positional.mom_t": 0.05930831009199977,
+    "positional.vratio": -0.03267854151387062,
+    "positional.flow": -0.007167984484200807,
+    "positional.pcr": -0.011946640807001196,
+    "positional.vrp": -0.015157899372947314
+  },
+  "credit": {
+    "short_term.structure": -0.12201194004093312,
+    "short_term.value": -0.13049166417555905,
+    "short_term.vol_anom": -0.10146299812773485,
+    "short_term.mom_t": -0.1144665447683965,
+    "short_term.vratio": 0.020883402063825256,
+    "short_term.flow": 0.0,
+    "short_term.pcr": 0.07115081411434239,
+    "short_term.vrp": 0.008640709081436458,
+    "swing.structure": -0.14231916767773053,
+    "swing.value": -0.16174025147589116,
+    "swing.vol_anom": -0.13255646552870498,
+    "swing.mom_t": -0.047216414511098544,
+    "swing.vratio": 0.011338585673259188,
+    "swing.flow": 0.0,
+    "swing.pcr": 0.0,
+    "swing.vrp": 0.0,
+    "positional.structure": 0.035376504246539445,
+    "positional.value": 0.03711262507467451,
+    "positional.vol_anom": 0.003018320094545786,
+    "positional.mom_t": 0.06567368256615394,
+    "positional.vratio": -0.0034264283397687795,
+    "positional.flow": 0.0,
+    "positional.pcr": 0.0,
+    "positional.vrp": -0.0014044019376054954
+  },
+  "p_star": {
+    "short_term": 0.79,
+    "swing": 0.76,
+    "positional": 0.75
+  },
+  "calib": {
+    "short_term": {
+      "a": 0.513112522127504,
+      "b": -0.2492260479947284
+    },
+    "swing": {
+      "a": 0.7058983108827148,
+      "b": -0.16153360353212112
+    },
+    "positional": {
+      "a": 0.8436452110423115,
+      "b": -0.1212244905244003
+    }
+  },
+  "options_diag": {
+    "RELIANCE": {
+      "calls": 6472,
+      "no_contract": 624,
+      "stale": 1842,
+      "served": 4006,
+      "iv_raw_fail": 19,
+      "iv_parity_rescues": 19,
+      "iv_success_rate": 1.0,
+      "availability": 0.619,
+      "_served_internal": 4006
+    },
+    "HDFCBANK": {
+      "calls": 6481,
+      "no_contract": 624,
+      "stale": 3722,
+      "served": 2135,
+      "iv_raw_fail": 291,
+      "iv_parity_rescues": 7,
+      "iv_success_rate": 0.829,
+      "availability": 0.3294,
+      "_served_internal": 2135
+    },
+    "ICICIBANK": {
+      "calls": 6479,
+      "no_contract": 624,
+      "stale": 1866,
+      "served": 3989,
+      "iv_raw_fail": 18,
+      "iv_parity_rescues": 18,
+      "iv_success_rate": 0.9997,
+      "availability": 0.6157,
+      "_served_internal": 3989
+    }
+  },
+  "db_path": "/Users/amitkumar/Personal/work/source code/SniperAgent/RealBackTest/db/rbt_no_intraday_ablation.db",
+  "n_trades": 36
+}

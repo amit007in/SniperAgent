@@ -122,7 +122,6 @@ def cached_system(system_text: str) -> list[dict]:
 SEED_USE_EXTENDED_THINKING = os.environ.get(
     "PA_SEED_THINKING", "true"
 ).lower() == "true"
-
 SEED_THINKING_BUDGET = int(os.environ.get("PA_SEED_THINKING_BUDGET", "10000"))
 SEED_MAX_TOKENS    = int(os.environ.get("PA_SEED_MAX_TOKENS",  "16384"))
 DAILY_MAX_TOKENS   = int(os.environ.get("PA_DAILY_MAX_TOKENS", "2048"))
@@ -299,7 +298,7 @@ _SMART_MODEL_DIR = _BASE / "SmartEngine" / "models"
 # PA_DECISION_ENGINE=smart  →  SmartEngine/rules path (no API calls)
 # PA_SMART_SCORER=rule|logistic|hermes
 # ---------------------------------------------------------------------------
-DECISION_ENGINE = os.environ.get("PA_DECISION_ENGINE", "llm").strip().lower()
+DECISION_ENGINE = os.environ.get("PA_DECISION_ENGINE", "smart").strip().lower()
 
 SMART_PARAMS = {
     "scorer": os.environ.get("PA_SMART_SCORER", "rule").strip().lower(),

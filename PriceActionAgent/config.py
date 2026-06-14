@@ -291,6 +291,30 @@ SETUP_PARAMS = {
     "sr_zone_tolerance_pct":     float(os.environ.get("PA_SR_ZONE_TOLERANCE_PCT",   "0.5")),
 }
 
+_BASE = Path(__file__).resolve().parent.parent
+_SMART_MODEL_DIR = _BASE / "SmartEngine" / "models"
+
+# ---------------------------------------------------------------------------
+# Decision engine — LLM (default) or deterministic SmartEngine
+# PA_DECISION_ENGINE=smart  →  SmartEngine/rules path (no API calls)
+# PA_SMART_SCORER=rule|logistic|hermes
+# ---------------------------------------------------------------------------
+DECISION_ENGINE = os.environ.get("PA_DECISION_ENGINE", "llm").strip().lower()
+
+SMART_PARAMS = {
+    "scorer": os.environ.get("PA_SMART_SCORER", "rule").strip().lower(),
+    "smart_min_prob": float(os.environ.get("PA_SMART_MIN_PROB", "0.55")),
+    "min_score": float(os.environ.get("PA_SMART_MIN_SCORE", "2.0")),
+    "hmm_states": int(os.environ.get("PA_SMART_HMM_STATES", "4")),
+    "regime_tau_high": float(os.environ.get("PA_SMART_REGIME_TAU_HIGH", "0.60")),
+    "regime_tau_low": float(os.environ.get("PA_SMART_REGIME_TAU_LOW", "0.40")),
+    "use_hmm": os.environ.get("PA_SMART_USE_HMM", "0").strip() == "1",
+    "model_dir": os.environ.get("PA_SMART_MODEL_DIR", str(_SMART_MODEL_DIR)),
+    "label_timeout_bars": int(os.environ.get("PA_SMART_LABEL_TIMEOUT", "10")),
+    "drift_action_tolerance": float(os.environ.get("PA_SMART_DRIFT_ACTION", "0.85")),
+    "drift_setup_tolerance": float(os.environ.get("PA_SMART_DRIFT_SETUP", "0.70")),
+}
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------

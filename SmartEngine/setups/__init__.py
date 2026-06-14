@@ -1,0 +1,1 @@
+"""Setup scanners for SmartEngine."""

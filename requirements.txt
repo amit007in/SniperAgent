@@ -13,3 +13,7 @@ scipy>=1.10.0
 
 # Dev / tests (optional but used by RealBackTest/tests)
 pytest>=7.0.0
+
+# SmartEngine — regime HMM + learned scorer (optional; rule scorer works without these)
+scikit-learn>=1.3.0
+hmmlearn>=0.3.0

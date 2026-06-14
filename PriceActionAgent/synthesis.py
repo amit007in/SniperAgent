@@ -65,10 +65,15 @@ if sys.version_info < (3, 10):
 
 import anthropic
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+_PA_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _PA_DIR.parent
+sys.path.insert(0, str(_PA_DIR))
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from config import (
     ANTHROPIC_MODEL,
+    DECISION_ENGINE,
     cached_system,
     API_RETRY_ATTEMPTS,
     API_RETRY_DELAY_S,
@@ -196,6 +201,40 @@ def call_claude(
 # ---------------------------------------------------------------------------
 # Single-prompt single-call synthesis
 # ---------------------------------------------------------------------------
+
+def run_smart_synthesis_path(
+    symbol: str,
+    window_start: str,
+    window_end: str,
+    next_td: str,
+    weekly_candles: list,
+    daily_candles: list,
+    h4_candles: list,
+    anchor_metrics_dict: dict,
+    vwap_block: dict | None,
+    volume_profile_block: dict | None,
+    nifty_ctx: dict | None,
+) -> dict:
+    """Deterministic SmartEngine synthesis — same JSON schema as LLM path."""
+    from SmartEngine.engine import run_smart_synthesis
+
+    vp_1d = (volume_profile_block or {}).get("20d")
+    vwap = (vwap_block or {}).get("session_vwap")
+    return run_smart_synthesis(
+        symbol=symbol,
+        window_start=window_start,
+        window_end=window_end,
+        next_trading_date=next_td,
+        weekly=weekly_candles,
+        daily=daily_candles,
+        h4=h4_candles,
+        anchor_metrics=anchor_metrics_dict,
+        vwap_1d=vwap,
+        vwap_4h=vwap,
+        volume_profile_1d=vp_1d,
+        nifty_context=nifty_ctx,
+    )
+
 
 def run_full_synthesis(
     symbol: str,
@@ -452,18 +491,35 @@ def synthesize_symbol(
         next_td = next_trading_day(window_end).isoformat()
 
         # 5. Single-prompt single-call synthesis (back-propagation + trade decision)
-        synthesis = run_full_synthesis(
-            symbol=symbol,
-            window_start=window_start.isoformat(),
-            window_end=window_end.isoformat(),
-            next_td=next_td,
-            weekly_candles=weekly,
-            daily_candles=daily,
-            h4_candles=h4,
-            anchor_block=anchor_blk,
-            anchor_metrics_dict=anchor_metrics_dict,
-            dry_run=dry_run,
-        )
+        if dry_run:
+            synthesis = _dry_run_result(symbol)
+        elif DECISION_ENGINE == "smart":
+            synthesis = run_smart_synthesis_path(
+                symbol=symbol,
+                window_start=window_start.isoformat(),
+                window_end=window_end.isoformat(),
+                next_td=next_td,
+                weekly_candles=weekly,
+                daily_candles=daily,
+                h4_candles=h4,
+                anchor_metrics_dict=anchor_metrics_dict,
+                vwap_block=vwap_4h,
+                volume_profile_block=volume_profile,
+                nifty_ctx=nifty_ctx,
+            )
+        else:
+            synthesis = run_full_synthesis(
+                symbol=symbol,
+                window_start=window_start.isoformat(),
+                window_end=window_end.isoformat(),
+                next_td=next_td,
+                weekly_candles=weekly,
+                daily_candles=daily,
+                h4_candles=h4,
+                anchor_block=anchor_blk,
+                anchor_metrics_dict=anchor_metrics_dict,
+                dry_run=dry_run,
+            )
 
         # 6. Persist results
         _persist(symbol=symbol, store=store, anchors=anchors,
@@ -495,7 +551,7 @@ def _persist(
     synthesis: dict,
 ) -> None:
     """Write anchor metrics + narrative + trade_decision to DB."""
-    raw_narrative = synthesis.get("final_narrative", "")
+    raw_narrative = synthesis.get("full_narrative") or synthesis.get("final_narrative", "")
     narrative_str = (
         json.dumps(raw_narrative, ensure_ascii=False)
         if isinstance(raw_narrative, dict) else str(raw_narrative)
@@ -614,6 +670,9 @@ def run_batch_synthesis(
                     "ma_20d":     anchors.ma_20d,
                     "avg_vol_20d": anchors.avg_vol_20d,
                 },
+                "vwap_block": vwap_4h_b,
+                "volume_profile": vp_b,
+                "nifty_ctx": nifty_ctx_b,
                 "window_start": window_start,
                 "window_end":   window_end,
                 "next_td":      None,   # set in Phase 2
@@ -668,6 +727,36 @@ def run_batch_synthesis(
                      next_td=state["next_td"],
                      synthesis=_dry_run_result(symbol))
             results["success"].append(symbol)
+        return results
+
+    if DECISION_ENGINE == "smart":
+        log.info("[batch] Phase 2: SmartEngine local synthesis for %d symbols", len(symbol_state))
+        for symbol, state in symbol_state.items():
+            try:
+                synthesis = run_smart_synthesis_path(
+                    symbol=symbol,
+                    window_start=state["window_start"].isoformat(),
+                    window_end=state["window_end"].isoformat(),
+                    next_td=state["next_td"],
+                    weekly_candles=state["weekly"],
+                    daily_candles=state["daily"],
+                    h4_candles=state["h4"],
+                    anchor_metrics_dict=state["anchor_metrics_dict"],
+                    vwap_block=state.get("vwap_block"),
+                    volume_profile_block=state.get("volume_profile"),
+                    nifty_ctx=state.get("nifty_ctx"),
+                )
+                _persist(symbol=symbol, store=store, anchors=state["anchors"],
+                         window_start=state["window_start"], window_end=state["window_end"],
+                         next_td=state["next_td"], synthesis=synthesis)
+                td = synthesis.get("trade_decision") or {}
+                log.info("%s: DONE ✓ [smart]  action=%s  entry=%s  target=%s  stop=%s",
+                         symbol, td.get("action") or "NO_TRADE",
+                         td.get("entry"), td.get("target"), td.get("stop_loss"))
+                results["success"].append(symbol)
+            except Exception as e:
+                log.error("%s: SmartEngine failed — %s", symbol, e, exc_info=True)
+                results["failed"].append(symbol)
         return results
 
     log.info("[batch] Phase 2: submitting %d synthesis requests", len(synthesis_requests))

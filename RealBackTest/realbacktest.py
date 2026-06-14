@@ -102,6 +102,28 @@ def cmd_run(a):
     print(f"\n[REPORT] {path}\n[VERDICT] {verdict}")
 
 
+def cmd_run_pa(a):
+    """PriceActionAgent daily BUY backtest (SmartEngine, structural exits)."""
+    import sys
+    from pathlib import Path
+    pa = Path(__file__).resolve().parent.parent / "PriceActionAgent"
+    sys.path.insert(0, str(pa))
+    from pa_backtest import main as pa_main
+    sys.argv = [
+        "pa_backtest",
+        "--start", a.start,
+        "--end", a.end,
+        "--trail-pct", str(a.trail_pct),
+        "--max-bars", str(a.max_bars),
+        "--cost-bps", str(a.cost_bps),
+        "--capital", str(a.capital),
+        "--tag", a.tag,
+    ]
+    if a.symbols:
+        sys.argv.extend(["--symbols", a.symbols])
+    pa_main()
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -138,6 +160,18 @@ def main():
     r.add_argument("--n-trials", type=int, default=10,
                    help="effective strategy variants tried, for DSR")
     r.set_defaults(fn=cmd_run)
+
+    pa = sub.add_parser("run-pa",
+                        help="PriceActionAgent daily BUY backtest (SmartEngine)")
+    pa.add_argument("--start", default="2024-10-01")
+    pa.add_argument("--end", default="2026-03-31")
+    pa.add_argument("--symbols", default=None)
+    pa.add_argument("--trail-pct", type=float, default=2.0)
+    pa.add_argument("--max-bars", type=int, default=20)
+    pa.add_argument("--cost-bps", type=float, default=10.0)
+    pa.add_argument("--capital", type=float, default=100_000.0)
+    pa.add_argument("--tag", default="pa_q4_2024_q1_2026")
+    pa.set_defaults(fn=cmd_run_pa)
 
     a = p.parse_args()
     a.fn(a)

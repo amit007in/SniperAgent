@@ -26,6 +26,31 @@ class Signal:
         return reward / risk
 
 
+def geometry_ok(sig: "Signal", feats, params: dict) -> bool:
+    """Reject degenerate stop geometry (correctness gate).
+
+    Two failure modes seen in backtest (~27% of trades, ~22% of loss):
+      1. Wrong-side stop — stop on/through entry (e.g. gap-up breakout where the
+         bar low sits above the broken level). A long with stop >= entry is
+         impossible; a short with stop <= entry likewise.
+      2. Near-zero risk  — stop within a hair of entry → instant stop-out and a
+         meaningless (exploding) R. Require a minimum risk distance: the larger
+         of `min_stop_distance_pct` (default 0.5%) and 0.3x ATR%.
+    """
+    e, s = sig.entry, sig.stop_loss
+    if e <= 0 or s <= 0:
+        return False
+    if sig.direction == "BUY" and s >= e:
+        return False
+    if sig.direction == "SELL" and s <= e:
+        return False
+    risk_pct = abs(e - s) / e * 100.0
+    last_close = getattr(feats, "last_close", 0.0) or 0.0
+    atr_pct = (getattr(feats, "atr_1d", 0.0) / last_close * 100.0) if last_close else 0.0
+    floor = max(params.get("min_stop_distance_pct", 0.5), 0.3 * atr_pct)
+    return risk_pct >= floor
+
+
 def pct_of(price: float, pct: float) -> float:
     return price * pct / 100.0
 

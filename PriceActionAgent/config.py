@@ -288,23 +288,51 @@ SETUP_PARAMS = {
     "block_deal_vol_multiple":   float(os.environ.get("PA_BLOCK_DEAL_VOL_MULT",     "3.0")),
     "block_deal_max_price_chg_pct": float(os.environ.get("PA_BLOCK_DEAL_MAX_CHG_PCT", "1.0")),
     "sr_zone_tolerance_pct":     float(os.environ.get("PA_SR_ZONE_TOLERANCE_PCT",   "0.5")),
+    # Minimum stop distance (% of entry) — rejects degenerate near-zero-risk
+    # stops (e.g. gap-up breakouts). Effective floor = max(this, 0.3x ATR%).
+    "min_stop_distance_pct":     float(os.environ.get("PA_MIN_STOP_DISTANCE_PCT",   "0.5")),
 }
 
 _BASE = Path(__file__).resolve().parent.parent
 _SMART_MODEL_DIR = _BASE / "SmartEngine" / "models"
 
 # ---------------------------------------------------------------------------
-# Decision engine — LLM (default) or deterministic SmartEngine
-# PA_DECISION_ENGINE=smart  →  SmartEngine/rules path (no API calls)
+# Decision engine
+#   dual  — Pass 1 SmartEngine; Pass 2 LLM only when SmartEngine BUY AND EOD
+#           BUY gate passes (green close, >= PA_EOD_BUY_MIN_GAIN_PCT vs prior close)
+#   smart — SmartEngine only; same EOD BUY gate applies
+#   llm   — LLM only; same EOD gate before any API call
 # PA_SMART_SCORER=rule|logistic|hermes
 # ---------------------------------------------------------------------------
-DECISION_ENGINE = os.environ.get("PA_DECISION_ENGINE", "smart").strip().lower()
+DECISION_ENGINE = os.environ.get("PA_DECISION_ENGINE", "dual").strip().lower()
+
+# EOD BUY gate (SmartEngine BUY + LLM): session must close green (close > open)
+# and be up at least this % vs prior session close. Red or flat/small-up → no BUY.
+EOD_BUY_MIN_GAIN_PCT = float(
+    os.environ.get(
+        "PA_EOD_BUY_MIN_GAIN_PCT",
+        os.environ.get("PA_LLM_MIN_EOD_GAIN_PCT", "0.5"),
+    )
+)
 
 SMART_PARAMS = {
     "scorer": os.environ.get("PA_SMART_SCORER", "rule").strip().lower(),
-    "smart_min_prob": float(os.environ.get("PA_SMART_MIN_PROB", "0.55")),
+    # Setups to suppress (comma-separated codes). GLOBAL default-on: disabled
+    # setups are never emitted by SmartEngine in ANY mode (live daily synthesis
+    # AND backtest), not just the backtest. Default suppresses P1 and V1, the
+    # worst performers in the Q4'24-Q1'26 backtest (P1 -1.15R; V1 -0.58R over
+    # 525 trades) — an EMPIRICAL default tuned on ONE period; revisit after more
+    # regimes. Override with PA_SMART_DISABLED_SETUPS (set to "" to re-enable all
+    # setups, e.g. when training the LogisticScorer on every setup).
+    "disabled_setups": {
+        s.strip().upper()
+        for s in os.environ.get("PA_SMART_DISABLED_SETUPS", "P1,V1").split(",")
+        if s.strip()
+    },
+    "smart_min_prob": float(os.environ.get("PA_SMART_MIN_PROB", "0.65")),
     "min_score": float(os.environ.get("PA_SMART_MIN_SCORE", "2.0")),
     "hmm_states": int(os.environ.get("PA_SMART_HMM_STATES", "4")),
+    "regime_slope_tstat": float(os.environ.get("PA_SMART_REGIME_SLOPE_TSTAT", "2.0")),
     "regime_tau_high": float(os.environ.get("PA_SMART_REGIME_TAU_HIGH", "0.60")),
     "regime_tau_low": float(os.environ.get("PA_SMART_REGIME_TAU_LOW", "0.40")),
     "use_hmm": os.environ.get("PA_SMART_USE_HMM", "0").strip() == "1",

@@ -32,6 +32,37 @@ class RegimeResult:
     hmm_state: int | None = None
 
 
+def regression_slope_tstat(candles) -> tuple[float, float]:
+    """OLS of log-close on time. Returns (slope_pct_per_bar, t_stat).
+
+    The t-stat measures how *significant* the directional drift is — large |t|
+    means a clean, persistent trend; near-zero means chop. This is the missing
+    'is the line actually going down?' signal that pivot counts ignore.
+    """
+    if not candles or len(candles) < 8:
+        return 0.0, 0.0
+    closes = np.array([c.close for c in candles], dtype=float)
+    closes = closes[closes > 0]
+    if len(closes) < 8:
+        return 0.0, 0.0
+    y = np.log(closes)
+    x = np.arange(len(y), dtype=float)
+    n = len(y)
+    sx, sy = x.mean(), y.mean()
+    sxx = ((x - sx) ** 2).sum()
+    if sxx <= 0:
+        return 0.0, 0.0
+    slope = ((x - sx) * (y - sy)).sum() / sxx
+    intercept = sy - slope * sx
+    resid = y - (intercept + slope * x)
+    dof = n - 2
+    if dof <= 0:
+        return 0.0, 0.0
+    se = np.sqrt((resid ** 2).sum() / dof / sxx)
+    t = slope / se if se > 1e-12 else 0.0
+    return float(slope * 100.0), float(t)
+
+
 def classify_trend_structural(
     higher_highs: int,
     higher_lows: int,
@@ -114,6 +145,36 @@ def _transitioning_from_hmm(post: np.ndarray, tau_low: float) -> bool:
     return flux > tau_low * 0.5
 
 
+def _finish(trend, confidence, ambiguous, candles, mom, vr, vol_z, ma_20,
+            params, use_hmm, tau_high, tau_low) -> RegimeResult:
+    """Shared tail: optional HMM adjustment, phase, vol character, build result."""
+    close = candles[-1].close if candles else 0.0
+    close_vs_ma = (close - ma_20) / ma_20 if ma_20 > 0 else 0.0
+
+    post, hmm_max = None, 0.0
+    if use_hmm and candles:
+        post, hmm_max = _hmm_posterior(candles, params.get("hmm_states", 4))
+        if post is not None:
+            if hmm_max >= tau_high:
+                confidence = max(confidence, hmm_max)
+            elif hmm_max < tau_low:
+                ambiguous = True
+            if _transitioning_from_hmm(post, tau_low) and trend in (TREND_SIDE, TREND_TRANS):
+                trend = TREND_TRANS
+                confidence = max(confidence, 0.5)
+
+    return RegimeResult(
+        trend=trend,
+        confidence=round(confidence, 3),
+        ambiguous=ambiguous,
+        phase=_infer_phase(trend, mom, vr, close_vs_ma),
+        vol_character=_vol_character(mom, vol_z),
+        mom_tstat=mom,
+        variance_ratio=vr,
+        hmm_state=int(post[-1].argmax()) if post is not None else None,
+    )
+
+
 def resolve_regime(
     candles,
     structural: tuple[int, int, int, int],
@@ -127,15 +188,41 @@ def resolve_regime(
     tau_low = params.get("regime_tau_low", 0.40)
     use_hmm = params.get("use_hmm", False)
 
+    slope_t_thresh = params.get("regime_slope_tstat", 2.0)
+
     hh, hl, lh, ll = structural
     trend = classify_trend_structural(hh, hl, lh, ll)
     df = candles_to_df(candles) if candles else None
     mom = momentum_tstat(df) if df is not None and len(df) > 5 else 0.0
     vr = variance_ratio(df) if df is not None and len(df) > 5 else 0.0
     vol_z = volume_zscore(df) if df is not None and len(df) > 5 else 0.0
+    slope_pct, slope_t = regression_slope_tstat(candles)
 
-    close = candles[-1].close if candles else 0.0
-    close_vs_ma = (close - ma_20) / ma_20 if ma_20 > 0 else 0.0
+    # Co-primary directional override: if the regression slope is statistically
+    # significant, it sets the trend directly — a steadily declining window must
+    # be DOWNTREND even when pivot counts default to SIDEWAYS (which would wrongly
+    # permit longs via the cascade). Pivots still win when they AGREE or when the
+    # slope is insignificant; a slope that CONTRADICTS clean pivots → TRANSITIONING.
+    if slope_t <= -slope_t_thresh:
+        if trend in (TREND_SIDE, TREND_TRANS, TREND_DOWN):
+            trend = TREND_DOWN
+            confidence = min(0.95, 0.6 + min(abs(slope_t) / 10.0, 0.3))
+            return _finish(trend, confidence, False, candles, mom, vr, vol_z, ma_20,
+                           params, use_hmm, tau_high, tau_low)
+        else:  # clean bullish pivots but down slope → genuine conflict
+            trend = TREND_TRANS
+            return _finish(trend, 0.5, True, candles, mom, vr, vol_z, ma_20,
+                           params, use_hmm, tau_high, tau_low)
+    if slope_t >= slope_t_thresh:
+        if trend in (TREND_SIDE, TREND_TRANS, TREND_UP):
+            trend = TREND_UP
+            confidence = min(0.95, 0.6 + min(abs(slope_t) / 10.0, 0.3))
+            return _finish(trend, confidence, False, candles, mom, vr, vol_z, ma_20,
+                           params, use_hmm, tau_high, tau_low)
+        else:
+            trend = TREND_TRANS
+            return _finish(trend, 0.5, True, candles, mom, vr, vol_z, ma_20,
+                           params, use_hmm, tau_high, tau_low)
 
     confidence = 0.5
     ambiguous = False
@@ -163,31 +250,8 @@ def resolve_regime(
             confidence = 0.5
             ambiguous = True
 
-    post, hmm_max = None, 0.0
-    if use_hmm and candles:
-        post, hmm_max = _hmm_posterior(candles, params.get("hmm_states", 4))
-        if post is not None:
-            if hmm_max >= tau_high:
-                confidence = max(confidence, hmm_max)
-            elif hmm_max < tau_low:
-                ambiguous = True
-            if _transitioning_from_hmm(post, tau_low) and trend in (TREND_SIDE, TREND_TRANS):
-                trend = TREND_TRANS
-                confidence = max(confidence, 0.5)
-
-    phase = _infer_phase(trend, mom, vr, close_vs_ma)
-    vol_char = _vol_character(mom, vol_z)
-
-    return RegimeResult(
-        trend=trend,
-        confidence=round(confidence, 3),
-        ambiguous=ambiguous,
-        phase=phase,
-        vol_character=vol_char,
-        mom_tstat=mom,
-        variance_ratio=vr,
-        hmm_state=int(post[-1].argmax()) if post is not None else None,
-    )
+    return _finish(trend, confidence, ambiguous, candles, mom, vr, vol_z, ma_20,
+                   params, use_hmm, tau_high, tau_low)
 
 
 def alignment_label(t1w: str, t1d: str, t4h: str) -> str:

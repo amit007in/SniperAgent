@@ -13,6 +13,7 @@ from SmartEngine.reconcile import (
 )
 from SmartEngine.scorer import make_scorer, select_best
 from SmartEngine.serialize import serialize_no_trade, serialize_synthesis
+from SmartEngine.setups.base import geometry_ok
 from SmartEngine.setups.momentum import scan_all_momentum
 from SmartEngine.setups.structure import scan_all_structure
 from SmartEngine.setups.trend import scan_all_trend
@@ -109,6 +110,12 @@ def run_smart_synthesis(
     candidates.extend(scan_all_trend(s1d, daily, feats, params, permitted))
     candidates.extend(scan_all_momentum(s1w, s1d, s4h, daily, feats, params, permitted))
     candidates = filter_signals_by_direction(candidates, permitted)
+    # Correctness gate: drop signals with wrong-side or near-zero-risk stops.
+    candidates = [c for c in candidates if geometry_ok(c, feats, params)]
+    # Suppress disabled setups (e.g. PA_SMART_DISABLED_SETUPS=V1,P1).
+    disabled = smart_params.get("disabled_setups") or set()
+    if disabled:
+        candidates = [c for c in candidates if c.setup not in disabled]
     candidates = _sort_by_hunt_protocol(candidates, permitted)
 
     best = select_best(candidates, feats, params, states, scorer, smart_params)

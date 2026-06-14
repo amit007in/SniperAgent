@@ -10,9 +10,11 @@ No incremental state. Every run is a full rolling-window synthesis:
   1. Load ROLLING_DAYS of daily, weekly, and 4H candles from marketdata.db
   2. Compute VWAP, Volume Profile, Nifty RS (Phase 2 enrichments)
   3. Build anchor block (fixed reference point for all prompts)
-  4. Single-prompt single-call synthesis: all OHLCV in one prompt,
-     model reasons progressively in extended thinking → trade decision JSON
-  5. Persist trade_decision to price_action.db
+  4. Dual-pass synthesis (default PA_DECISION_ENGINE=dual):
+     Pass 1 — SmartEngine flags potential BUY signals (no API call)
+     Pass 2 — LLM confirms only when Pass 1 is BUY
+     Persist BUY to price_action.db only when both engines agree
+  5. Legacy single-pass modes: PA_DECISION_ENGINE=smart|llm
 
 Why full re-run instead of incremental:
   - Every decision is grounded in raw OHLCV truth, not prior model output
@@ -39,7 +41,9 @@ Usage
 
 Environment
 -----------
-  ANTHROPIC_API_KEY        — required
+  PA_DECISION_ENGINE       — dual (default) | smart | llm
+  PA_EOD_BUY_MIN_GAIN_PCT  — min % gain vs prior close for BUY (SmartEngine + LLM)
+  ANTHROPIC_API_KEY        — required for dual/llm Pass 2
   PA_MODEL                 — override model (default: claude-sonnet-4-6)
   PA_ROLLING_DAYS          — trading days of history per run (default: 90)
   PA_SEED_CHUNK_DAYS       — days per reconciliation chunk (default: 15)
@@ -74,6 +78,7 @@ if str(_REPO_ROOT) not in sys.path:
 from config import (
     ANTHROPIC_MODEL,
     DECISION_ENGINE,
+    EOD_BUY_MIN_GAIN_PCT,
     cached_system,
     API_RETRY_ATTEMPTS,
     API_RETRY_DELAY_S,
@@ -220,7 +225,7 @@ def run_smart_synthesis_path(
 
     vp_1d = (volume_profile_block or {}).get("20d")
     vwap = (vwap_block or {}).get("session_vwap")
-    return run_smart_synthesis(
+    out = run_smart_synthesis(
         symbol=symbol,
         window_start=window_start,
         window_end=window_end,
@@ -234,6 +239,263 @@ def run_smart_synthesis_path(
         volume_profile_1d=vp_1d,
         nifty_context=nifty_ctx,
     )
+    return _apply_eod_buy_gate(symbol, out, daily_candles)
+
+
+def _trade_action(synthesis: dict) -> str:
+    return (synthesis.get("trade_decision") or {}).get("action", "NO_TRADE")
+
+
+def qualifies_eod_buy_gate(daily_candles: list) -> tuple[bool, str]:
+    """
+    BUY signals (SmartEngine and LLM) require a green EOD bar (close > open)
+    and a gain of at least EOD_BUY_MIN_GAIN_PCT vs the prior session close.
+    """
+    if len(daily_candles) < 2:
+        return False, "insufficient daily bars for EOD filter"
+
+    last = daily_candles[-1]
+    prev = daily_candles[-2]
+
+    if last.close <= last.open:
+        return False, (
+            f"red EOD candle (open={last.open:.2f}, close={last.close:.2f})"
+        )
+
+    if prev.close <= 0:
+        return False, "invalid prior close for EOD filter"
+
+    chg_pct = (last.close - prev.close) / prev.close * 100
+    if chg_pct < EOD_BUY_MIN_GAIN_PCT:
+        return False, (
+            f"EOD gain {chg_pct:.2f}% below {EOD_BUY_MIN_GAIN_PCT:.1f}% minimum "
+            f"(prev={prev.close:.2f}, close={last.close:.2f})"
+        )
+
+    return True, f"green EOD +{chg_pct:.2f}%"
+
+
+def qualifies_for_llm_analysis(daily_candles: list) -> tuple[bool, str]:
+    """Alias for qualifies_eod_buy_gate (same rule for LLM and SmartEngine BUY)."""
+    return qualifies_eod_buy_gate(daily_candles)
+
+
+def _apply_eod_buy_gate(symbol: str, synthesis: dict, daily_candles: list) -> dict:
+    """Veto SmartEngine BUY when the session fails the EOD BUY gate."""
+    td = synthesis.get("trade_decision") or {}
+    if td.get("action") != "BUY":
+        return synthesis
+
+    ok, reason = qualifies_eod_buy_gate(daily_candles)
+    if ok:
+        return synthesis
+
+    log.info("%s: SmartEngine BUY vetoed — EOD gate: %s", symbol, reason)
+    result = dict(synthesis)
+    result["trade_decision"] = {
+        "action": "NO_TRADE",
+        "setup": "NO_TRADE",
+        "entry": None,
+        "target": None,
+        "stop_loss": None,
+        "rejection": (
+            f"EOD gate: SmartEngine BUY {td.get('setup')} @ {td.get('entry')} "
+            f"vetoed — {reason}"
+        ),
+    }
+    result["eod_filter"] = reason
+    return result
+
+
+def _llm_only_filter_rejected(symbol: str, reason: str) -> dict:
+    return {
+        "final_narrative": f"[LLM skipped] {symbol}: {reason}",
+        "trend_status": {"1w": "SIDEWAYS", "1d": "SIDEWAYS", "4h": "SIDEWAYS",
+                         "alignment": "CONFLICTED"},
+        "trade_decision": {
+            "action": "NO_TRADE",
+            "setup": "NO_TRADE",
+            "entry": None,
+            "target": None,
+            "stop_loss": None,
+            "rejection": f"EOD gate: {reason}",
+        },
+        "eod_filter": reason,
+    }
+
+
+def _dual_llm_filter_rejected(symbol: str, smart: dict, reason: str) -> dict:
+    """SmartEngine BUY but LLM Pass 2 skipped by EOD filter."""
+    smart_td = smart.get("trade_decision") or {}
+    rejection = (
+        f"Dual-pass: SmartEngine BUY {smart_td.get('setup')} @ {smart_td.get('entry')} — "
+        f"LLM skipped (EOD gate): {reason}"
+    )
+    result = dict(smart)
+    result["trade_decision"] = {
+        "action": "NO_TRADE",
+        "setup": "NO_TRADE",
+        "entry": None,
+        "target": None,
+        "stop_loss": None,
+        "rejection": rejection,
+    }
+    result["dual_pass"] = {
+        "pass1_engine": "smart",
+        "pass1": smart_td,
+        "pass2_engine": "llm",
+        "pass2": None,
+        "agreed": False,
+        "skipped_pass2": True,
+        "eod_filter": reason,
+    }
+    return result
+
+
+def _merge_dual_pass(symbol: str, smart: dict, llm: dict) -> dict:
+    """Combine Pass 1 (SmartEngine) + Pass 2 (LLM). BUY only when both agree."""
+    smart_td = smart.get("trade_decision") or {}
+    llm_td = llm.get("trade_decision") or {}
+    dual_meta = {
+        "pass1_engine": "smart",
+        "pass1": smart_td,
+        "pass2_engine": "llm",
+        "pass2": llm_td,
+    }
+
+    if llm_td.get("action") == "BUY":
+        log.info(
+            "%s: DUAL PASS AGREED — SmartEngine BUY %s + LLM BUY %s",
+            symbol, smart_td.get("setup"), llm_td.get("setup"),
+        )
+        merged = dict(llm)
+        dual_meta["agreed"] = True
+        merged["dual_pass"] = dual_meta
+        return merged
+
+    log.info(
+        "%s: DUAL PASS REJECTED — SmartEngine BUY %s @ %s, LLM %s",
+        symbol, smart_td.get("setup"), smart_td.get("entry"), llm_td.get("action"),
+    )
+    rejection = (
+        f"Dual-pass: SmartEngine BUY {smart_td.get('setup')} @ {smart_td.get('entry')} "
+        f"rejected by LLM ({llm_td.get('action')}). "
+        f"{llm_td.get('rejection') or ''}"
+    ).strip()
+    base = llm if llm.get("full_narrative") or llm.get("final_narrative") else smart
+    merged = dict(base)
+    merged["trade_decision"] = {
+        "action": "NO_TRADE",
+        "setup": "NO_TRADE",
+        "entry": None,
+        "target": None,
+        "stop_loss": None,
+        "rejection": rejection,
+        "next_plan": llm_td.get("next_plan"),
+    }
+    dual_meta["agreed"] = False
+    merged["dual_pass"] = dual_meta
+    return merged
+
+
+def run_dual_synthesis(
+    symbol: str,
+    window_start: str,
+    window_end: str,
+    next_td: str,
+    weekly_candles: list,
+    daily_candles: list,
+    h4_candles: list,
+    anchor_block: str,
+    anchor_metrics_dict: dict,
+    vwap_block: dict | None,
+    volume_profile_block: dict | None,
+    nifty_ctx: dict | None,
+    *,
+    dry_run: bool = False,
+) -> dict:
+    """
+    Pass 1: SmartEngine screens for BUY candidates.
+    Pass 2: LLM runs only when Pass 1 is BUY.
+    Returns synthesis dict; trade_decision is BUY only when both agree.
+    """
+    smart = run_smart_synthesis_path(
+        symbol=symbol,
+        window_start=window_start,
+        window_end=window_end,
+        next_td=next_td,
+        weekly_candles=weekly_candles,
+        daily_candles=daily_candles,
+        h4_candles=h4_candles,
+        anchor_metrics_dict=anchor_metrics_dict,
+        vwap_block=vwap_block,
+        volume_profile_block=volume_profile_block,
+        nifty_ctx=nifty_ctx,
+    )
+    smart_td = smart.get("trade_decision") or {}
+    smart_action = smart_td.get("action", "NO_TRADE")
+
+    if smart_action != "BUY":
+        log.info(
+            "%s: Pass 1 SmartEngine %s — skipping Pass 2 (LLM)",
+            symbol, smart_action,
+        )
+        result = dict(smart)
+        result["dual_pass"] = {
+            "pass1_engine": "smart",
+            "pass1": smart_td,
+            "pass2_engine": None,
+            "pass2": None,
+            "agreed": False,
+            "skipped_pass2": True,
+        }
+        return result
+
+    log.info(
+        "%s: Pass 1 SmartEngine BUY %s @ %s — checking LLM EOD filter",
+        symbol, smart_td.get("setup"), smart_td.get("entry"),
+    )
+    ok, filter_reason = qualifies_for_llm_analysis(daily_candles)
+    if not ok:
+        log.info("%s: Pass 2 (LLM) skipped — EOD filter: %s", symbol, filter_reason)
+        return _dual_llm_filter_rejected(symbol, smart, filter_reason)
+
+    log.info("%s: EOD filter passed (%s) — running Pass 2 (LLM)", symbol, filter_reason)
+    if dry_run:
+        log.info("%s: DRY RUN — Pass 2 skipped; SmartEngine BUY not confirmed", symbol)
+        result = dict(smart)
+        result["dual_pass"] = {
+            "pass1_engine": "smart",
+            "pass1": smart_td,
+            "pass2_engine": "llm",
+            "pass2": None,
+            "agreed": False,
+            "skipped_pass2": True,
+            "rejection": "DRY RUN — LLM confirmation skipped",
+        }
+        result["trade_decision"] = {
+            "action": "NO_TRADE",
+            "setup": "NO_TRADE",
+            "entry": None,
+            "target": None,
+            "stop_loss": None,
+            "rejection": "DRY RUN — SmartEngine BUY not confirmed by LLM",
+        }
+        return result
+
+    llm = run_full_synthesis(
+        symbol=symbol,
+        window_start=window_start,
+        window_end=window_end,
+        next_td=next_td,
+        weekly_candles=weekly_candles,
+        daily_candles=daily_candles,
+        h4_candles=h4_candles,
+        anchor_block=anchor_block,
+        anchor_metrics_dict=anchor_metrics_dict,
+        dry_run=False,
+    )
+    return _merge_dual_pass(symbol, smart, llm)
 
 
 def run_full_synthesis(
@@ -490,9 +752,23 @@ def synthesize_symbol(
         # 4. Next trading date
         next_td = next_trading_day(window_end).isoformat()
 
-        # 5. Single-prompt single-call synthesis (back-propagation + trade decision)
-        if dry_run:
-            synthesis = _dry_run_result(symbol)
+        # 5. Synthesis — dual-pass (default), smart-only, or llm-only
+        if DECISION_ENGINE == "dual":
+            synthesis = run_dual_synthesis(
+                symbol=symbol,
+                window_start=window_start.isoformat(),
+                window_end=window_end.isoformat(),
+                next_td=next_td,
+                weekly_candles=weekly,
+                daily_candles=daily,
+                h4_candles=h4,
+                anchor_block=anchor_blk,
+                anchor_metrics_dict=anchor_metrics_dict,
+                vwap_block=vwap_4h,
+                volume_profile_block=volume_profile,
+                nifty_ctx=nifty_ctx,
+                dry_run=dry_run,
+            )
         elif DECISION_ENGINE == "smart":
             synthesis = run_smart_synthesis_path(
                 symbol=symbol,
@@ -508,18 +784,25 @@ def synthesize_symbol(
                 nifty_ctx=nifty_ctx,
             )
         else:
-            synthesis = run_full_synthesis(
-                symbol=symbol,
-                window_start=window_start.isoformat(),
-                window_end=window_end.isoformat(),
-                next_td=next_td,
-                weekly_candles=weekly,
-                daily_candles=daily,
-                h4_candles=h4,
-                anchor_block=anchor_blk,
-                anchor_metrics_dict=anchor_metrics_dict,
-                dry_run=dry_run,
-            )
+            ok, filter_reason = qualifies_for_llm_analysis(daily)
+            if not ok:
+                log.info("%s: LLM skipped — EOD filter: %s", symbol, filter_reason)
+                synthesis = _llm_only_filter_rejected(symbol, filter_reason)
+            elif dry_run:
+                synthesis = _dry_run_result(symbol)
+            else:
+                synthesis = run_full_synthesis(
+                    symbol=symbol,
+                    window_start=window_start.isoformat(),
+                    window_end=window_end.isoformat(),
+                    next_td=next_td,
+                    weekly_candles=weekly,
+                    daily_candles=daily,
+                    h4_candles=h4,
+                    anchor_block=anchor_blk,
+                    anchor_metrics_dict=anchor_metrics_dict,
+                    dry_run=False,
+                )
 
         # 6. Persist results
         _persist(symbol=symbol, store=store, anchors=anchors,
@@ -527,12 +810,20 @@ def synthesize_symbol(
                  next_td=next_td, synthesis=synthesis)
 
         td = synthesis.get("trade_decision") or {}
+        dual = synthesis.get("dual_pass") or {}
+        extra = ""
+        if dual:
+            extra = (
+                f"  dual_agreed={dual.get('agreed')}"
+                f"  pass1={_trade_action({'trade_decision': dual.get('pass1')})}"
+            )
         log.info(
-            "%s: DONE ✓  action=%s  entry=%s  target=%s  stop=%s  next=%s",
+            "%s: DONE ✓  action=%s  entry=%s  target=%s  stop=%s  next=%s%s",
             symbol,
             td.get("action") or "NO_TRADE",
             td.get("entry"), td.get("target"), td.get("stop_loss"),
             next_td,
+            extra,
         )
         return True
 
@@ -686,13 +977,189 @@ def run_batch_synthesis(
     if not symbol_state:
         return results
 
-    # ── Phase 2: one full-synthesis request per symbol ──────────────────────
+    # ── Pass 1: SmartEngine for every symbol (dual + smart batch modes) ───────
+    if DECISION_ENGINE in ("dual", "smart"):
+        log.info("[batch] Pass 1: SmartEngine for %d symbols", len(symbol_state))
+        failed_pass1: list[str] = []
+        for symbol, state in list(symbol_state.items()):
+            if not state.get("next_td"):
+                state["next_td"] = next_trading_day(state["window_end"]).isoformat()
+            try:
+                state["smart_synthesis"] = run_smart_synthesis_path(
+                    symbol=symbol,
+                    window_start=state["window_start"].isoformat(),
+                    window_end=state["window_end"].isoformat(),
+                    next_td=state["next_td"],
+                    weekly_candles=state["weekly"],
+                    daily_candles=state["daily"],
+                    h4_candles=state["h4"],
+                    anchor_metrics_dict=state["anchor_metrics_dict"],
+                    vwap_block=state.get("vwap_block"),
+                    volume_profile_block=state.get("volume_profile"),
+                    nifty_ctx=state.get("nifty_ctx"),
+                )
+            except Exception as e:
+                log.error("%s: SmartEngine Pass 1 failed — %s", symbol, e, exc_info=True)
+                failed_pass1.append(symbol)
+        for symbol in failed_pass1:
+            symbol_state.pop(symbol, None)
+            results["failed"].append(symbol)
+
+    if not symbol_state:
+        return results
+
+    if dry_run:
+        for symbol, state in symbol_state.items():
+            if DECISION_ENGINE == "dual" and state.get("smart_synthesis"):
+                smart = state["smart_synthesis"]
+                smart_td = smart.get("trade_decision") or {}
+                if smart_td.get("action") == "BUY":
+                    synthesis = dict(smart)
+                    synthesis["trade_decision"] = {
+                        "action": "NO_TRADE",
+                        "setup": "NO_TRADE",
+                        "entry": None,
+                        "target": None,
+                        "stop_loss": None,
+                        "rejection": "DRY RUN — SmartEngine BUY not confirmed by LLM",
+                    }
+                    synthesis["dual_pass"] = {
+                        "pass1_engine": "smart",
+                        "pass1": smart_td,
+                        "pass2_engine": "llm",
+                        "pass2": None,
+                        "agreed": False,
+                        "skipped_pass2": True,
+                    }
+                else:
+                    synthesis = dict(smart)
+                    synthesis["dual_pass"] = {
+                        "pass1_engine": "smart",
+                        "pass1": smart_td,
+                        "pass2_engine": None,
+                        "pass2": None,
+                        "agreed": False,
+                        "skipped_pass2": True,
+                    }
+            elif DECISION_ENGINE == "smart" and state.get("smart_synthesis"):
+                synthesis = state["smart_synthesis"]
+            else:
+                synthesis = _dry_run_result(symbol)
+            _persist(symbol=symbol, store=store, anchors=state["anchors"],
+                     window_start=state["window_start"], window_end=state["window_end"],
+                     next_td=state["next_td"],
+                     synthesis=synthesis)
+            results["success"].append(symbol)
+        return results
+
+    if DECISION_ENGINE == "smart":
+        log.info("[batch] Persisting SmartEngine-only results")
+        for symbol, state in symbol_state.items():
+            try:
+                synthesis = state["smart_synthesis"]
+                _persist(symbol=symbol, store=store, anchors=state["anchors"],
+                         window_start=state["window_start"], window_end=state["window_end"],
+                         next_td=state["next_td"], synthesis=synthesis)
+                td = synthesis.get("trade_decision") or {}
+                log.info("%s: DONE ✓ [smart]  action=%s  entry=%s  target=%s  stop=%s",
+                         symbol, td.get("action") or "NO_TRADE",
+                         td.get("entry"), td.get("target"), td.get("stop_loss"))
+                results["success"].append(symbol)
+            except Exception as e:
+                log.error("%s: persist failed — %s", symbol, e, exc_info=True)
+                results["failed"].append(symbol)
+        return results
+
+    # ── Dual pass: LLM batch only for SmartEngine BUY + EOD filter pass ───────
+    llm_candidates: dict[str, dict] = {}
+    if DECISION_ENGINE == "dual":
+        for symbol, state in symbol_state.items():
+            smart = state.get("smart_synthesis") or {}
+            smart_td = smart.get("trade_decision") or {}
+            if _trade_action(smart) != "BUY":
+                try:
+                    synthesis = dict(smart)
+                    synthesis["dual_pass"] = {
+                        "pass1_engine": "smart",
+                        "pass1": smart_td,
+                        "pass2_engine": None,
+                        "pass2": None,
+                        "agreed": False,
+                        "skipped_pass2": True,
+                    }
+                    _persist(symbol=symbol, store=store, anchors=state["anchors"],
+                             window_start=state["window_start"],
+                             window_end=state["window_end"],
+                             next_td=state["next_td"], synthesis=synthesis)
+                    log.info("%s: DONE ✓ [dual pass1]  action=%s — LLM skipped",
+                             symbol, smart_td.get("action") or "NO_TRADE")
+                    results["success"].append(symbol)
+                except Exception as e:
+                    log.error("%s: persist failed — %s", symbol, e, exc_info=True)
+                    results["failed"].append(symbol)
+                continue
+
+            ok, filter_reason = qualifies_for_llm_analysis(state["daily"])
+            if not ok:
+                try:
+                    synthesis = _dual_llm_filter_rejected(symbol, smart, filter_reason)
+                    _persist(symbol=symbol, store=store, anchors=state["anchors"],
+                             window_start=state["window_start"],
+                             window_end=state["window_end"],
+                             next_td=state["next_td"], synthesis=synthesis)
+                    log.info("%s: DONE ✓ [dual EOD filter]  SmartEngine BUY — LLM skipped: %s",
+                             symbol, filter_reason)
+                    results["success"].append(symbol)
+                except Exception as e:
+                    log.error("%s: persist failed — %s", symbol, e, exc_info=True)
+                    results["failed"].append(symbol)
+                continue
+
+            llm_candidates[symbol] = state
+
+        if not llm_candidates:
+            log.info("[batch] No LLM candidates (SmartEngine BUY + EOD filter) — Pass 2 skipped")
+            return results
+        log.info("[batch] Pass 2: LLM for %d candidates (SmartEngine BUY + green EOD ≥%.1f%%)",
+                 len(llm_candidates), EOD_BUY_MIN_GAIN_PCT)
+        symbol_state = llm_candidates
+
+    elif DECISION_ENGINE == "llm":
+        filtered_out: list[str] = []
+        for symbol, state in list(symbol_state.items()):
+            ok, filter_reason = qualifies_for_llm_analysis(state["daily"])
+            if ok:
+                continue
+            try:
+                if not state.get("next_td"):
+                    state["next_td"] = next_trading_day(state["window_end"]).isoformat()
+                synthesis = _llm_only_filter_rejected(symbol, filter_reason)
+                _persist(symbol=symbol, store=store, anchors=state["anchors"],
+                         window_start=state["window_start"],
+                         window_end=state["window_end"],
+                         next_td=state["next_td"],
+                         synthesis=synthesis)
+                log.info("%s: DONE ✓ [llm EOD filter]  skipped: %s", symbol, filter_reason)
+                results["success"].append(symbol)
+            except Exception as e:
+                log.error("%s: persist failed — %s", symbol, e, exc_info=True)
+                results["failed"].append(symbol)
+            filtered_out.append(symbol)
+        for symbol in filtered_out:
+            symbol_state.pop(symbol, None)
+        if not symbol_state:
+            log.info("[batch] No symbols passed LLM EOD filter")
+            return results
+        log.info("[batch] LLM batch for %d symbols (green EOD ≥%.1f%%)",
+                 len(symbol_state), EOD_BUY_MIN_GAIN_PCT)
+
+    # ── Phase 2: LLM batch requests ──────────────────────────────────────────
     log.info("[batch] Phase 2: building synthesis requests for %d symbols", len(symbol_state))
 
     synthesis_requests: list[dict] = []
     for symbol, state in symbol_state.items():
         window_end = state["window_end"]
-        next_td    = next_trading_day(window_end).isoformat()
+        next_td    = state["next_td"] or next_trading_day(window_end).isoformat()
         state["next_td"] = next_td
 
         user_msg = full_synthesis_prompt(
@@ -720,45 +1187,6 @@ def run_batch_synthesis(
             req["temperature"] = SEED_TEMPERATURE
         synthesis_requests.append(req)
 
-    if dry_run:
-        for symbol, state in symbol_state.items():
-            _persist(symbol=symbol, store=store, anchors=state["anchors"],
-                     window_start=state["window_start"], window_end=state["window_end"],
-                     next_td=state["next_td"],
-                     synthesis=_dry_run_result(symbol))
-            results["success"].append(symbol)
-        return results
-
-    if DECISION_ENGINE == "smart":
-        log.info("[batch] Phase 2: SmartEngine local synthesis for %d symbols", len(symbol_state))
-        for symbol, state in symbol_state.items():
-            try:
-                synthesis = run_smart_synthesis_path(
-                    symbol=symbol,
-                    window_start=state["window_start"].isoformat(),
-                    window_end=state["window_end"].isoformat(),
-                    next_td=state["next_td"],
-                    weekly_candles=state["weekly"],
-                    daily_candles=state["daily"],
-                    h4_candles=state["h4"],
-                    anchor_metrics_dict=state["anchor_metrics_dict"],
-                    vwap_block=state.get("vwap_block"),
-                    volume_profile_block=state.get("volume_profile"),
-                    nifty_ctx=state.get("nifty_ctx"),
-                )
-                _persist(symbol=symbol, store=store, anchors=state["anchors"],
-                         window_start=state["window_start"], window_end=state["window_end"],
-                         next_td=state["next_td"], synthesis=synthesis)
-                td = synthesis.get("trade_decision") or {}
-                log.info("%s: DONE ✓ [smart]  action=%s  entry=%s  target=%s  stop=%s",
-                         symbol, td.get("action") or "NO_TRADE",
-                         td.get("entry"), td.get("target"), td.get("stop_loss"))
-                results["success"].append(symbol)
-            except Exception as e:
-                log.error("%s: SmartEngine failed — %s", symbol, e, exc_info=True)
-                results["failed"].append(symbol)
-        return results
-
     log.info("[batch] Phase 2: submitting %d synthesis requests", len(synthesis_requests))
     batch_id    = submit_batch(synthesis_requests)
     raw_results = collect_results(batch_id)
@@ -772,15 +1200,21 @@ def run_batch_synthesis(
             results["failed"].append(symbol)
             continue
 
-        synthesis = _parse_json(response_txt, symbol, "batch_synthesis")
+        llm = _parse_json(response_txt, symbol, "batch_synthesis")
+        if DECISION_ENGINE == "dual":
+            smart = state.get("smart_synthesis") or {}
+            synthesis = _merge_dual_pass(symbol, smart, llm)
+        else:
+            synthesis = llm
 
         try:
             _persist(symbol=symbol, store=store, anchors=state["anchors"],
                      window_start=state["window_start"], window_end=state["window_end"],
                      next_td=state["next_td"], synthesis=synthesis)
             td = synthesis.get("trade_decision") or {}
-            log.info("%s: DONE ✓ [batch]  action=%s  entry=%s  target=%s  stop=%s",
-                     symbol, td.get("action") or "NO_TRADE",
+            tag = "dual" if DECISION_ENGINE == "dual" else "batch"
+            log.info("%s: DONE ✓ [%s]  action=%s  entry=%s  target=%s  stop=%s",
+                     symbol, tag, td.get("action") or "NO_TRADE",
                      td.get("entry"), td.get("target"), td.get("stop_loss"))
             results["success"].append(symbol)
         except Exception as e:
@@ -824,7 +1258,8 @@ def main():
     else:
         from nse_calendar import last_trading_day
         session_date = last_trading_day()
-    log.info("Session date: %s  |  Rolling window: %d trading days", session_date, ROLLING_DAYS)
+    log.info("Session date: %s  |  Rolling window: %d trading days  |  engine=%s",
+             session_date, ROLLING_DAYS, DECISION_ENGINE)
 
     symbols = (
         [s.strip().upper() for s in args.symbols.split(",") if s.strip()]

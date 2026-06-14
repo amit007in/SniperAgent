@@ -35,6 +35,7 @@ import anthropic
 
 from config import (
     ANTHROPIC_MODEL,
+    cached_system,
     BATCH_MAX_WAIT_S,
     BATCH_POLL_INTERVAL_S,
 )
@@ -76,10 +77,11 @@ def submit_batch(requests: list[dict]) -> str:
 
     api_requests = []
     for req in requests:
+        _sys = req["system"]
         params: dict = {
             "model": ANTHROPIC_MODEL,
             "max_tokens": req["max_tokens"],
-            "system": req["system"],
+            "system": cached_system(_sys) if isinstance(_sys, str) else _sys,
             "messages": req["messages"],
         }
         # Extended thinking (seed final synthesis)

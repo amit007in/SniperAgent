@@ -1115,22 +1115,17 @@ When in doubt → NO_TRADE.
 A BUY or SELL requires all three prices (entry, target, stop_loss) sourced from real OHLCV data.
 If any price cannot be verified → NO_TRADE.
 
-OUTPUT EXACTLY THIS JSON (no markdown, no prose outside the JSON):
+OUTPUT EXACTLY THIS JSON (no markdown, no prose outside the JSON).
+trade_decision is FIRST and MANDATORY — emit it fully before anything else so the
+decision is never lost if the response is cut short:
 {{
-  "pass1_audit": {{
-    "claim_registry_validation": [
-      {{"id": "CR001", "verdict": "STILL_VALID|CORRECTED|INVALIDATED|EXPIRED", "reason": "..."}}
-    ],
-    "1w_layer": [
-      {{"claim": "...", "verdict": "STILL_VALID|CORRECTED", "reason": "..."}}
-    ],
-    "1d_layer": [
-      {{"claim": "...", "verdict": "STILL_VALID|CORRECTED", "reason": "..."}}
-    ],
-    "4h_layer": [
-      {{"claim": "...", "verdict": "STILL_VALID|CORRECTED", "reason": "..."}}
-    ],
-    "cascade_conflicts": "description of any cross-layer conflicts, or null"
+  "trade_decision": {{
+{_TRADE_TRAP_JSON}
+    "action": "BUY|SELL|NO_TRADE",
+    "entry":     <exact ₹ — structural level or last close; null if NO_TRADE>,
+    "target":    <exact ₹ — next 1D/1W claim_registry level; null if NO_TRADE>,
+    "stop_loss": <exact ₹ — structural swing level; null if NO_TRADE>,
+    "next_plan": "<always populated — exact condition(s) + CRxxx levels to watch for next session>"
   }},
 {_CLAIM_REGISTRY_JSON}
   "final_narrative": {{
@@ -1165,14 +1160,6 @@ OUTPUT EXACTLY THIS JSON (no markdown, no prose outside the JSON):
   "volume_character": "ACCUMULATION|DISTRIBUTION|NEUTRAL|MIXED",
   "market_phase": "MARKUP|MARKDOWN|ACCUMULATION|DISTRIBUTION|CONSOLIDATION",
   "market_phase_note": "informational only — not required for trade direction",
-  "trade_decision": {{
-{_TRADE_TRAP_JSON}
-    "action": "BUY|SELL|NO_TRADE",
-    "entry":     <exact ₹ — structural level or last close; null if NO_TRADE>,
-    "target":    <exact ₹ — next 1D/1W claim_registry level; null if NO_TRADE>,
-    "stop_loss": <exact ₹ — structural swing level; null if NO_TRADE>,
-    "next_plan": "<always populated — exact condition(s) + CRxxx levels to watch for next session>"
-  }},
   "data_integrity_check": "PASS — all prices sourced from {seed_start} to {seed_end} OHLCV data; every narrative level has a claim_registry id"
 }}"""
 
@@ -1641,16 +1628,18 @@ AFTER ALL CHUNKS — THREE-PASS FINAL SYNTHESIS:
             State which setup triggered (e.g. "SETUP: B2 · BREAKOUT_RETEST")
             or which step rejected the trade. NO_TRADE is correct when in doubt.
 
-OUTPUT EXACTLY THIS JSON (no markdown fences, no prose outside the JSON):
+OUTPUT EXACTLY THIS JSON (no markdown fences, no prose outside the JSON).
+trade_decision is FIRST and MANDATORY — emit it fully before anything else so the
+decision is never lost if the response is cut short:
 {{
-  "pass1_audit": {{
-    "claim_registry_validation": [
-      {{"id": "CR001", "verdict": "CONFIRMED|EVOLVED|INVALIDATED|CORRECTED|EXPIRED", "evidence": "date+price reason"}}
-    ],
-    "1w_layer": [{{"claim": "...", "verdict": "...", "reason": "..."}}],
-    "1d_layer": [{{"claim": "...", "verdict": "...", "reason": "..."}}],
-    "4h_layer": [{{"claim": "...", "verdict": "...", "reason": "..."}}],
-    "cascade_effects": "description or null"
+  "trade_decision": {{
+{_TRADE_TRAP_JSON}
+    "action":     "BUY|SELL|NO_TRADE",
+    "setup":      "B1|B2|B3|B4|S1|S2|S3|S4|T1|T2|M1|M2|NO_TRADE",
+    "entry":      <exact ₹ or null>,
+    "target":     <exact ₹ or null>,
+    "stop_loss":  <exact ₹ or null>,
+    "rejection":  "step + reason if NO_TRADE, else null"
   }},
 {_CLAIM_REGISTRY_JSON}
   "full_narrative": {{
@@ -1672,15 +1661,6 @@ OUTPUT EXACTLY THIS JSON (no markdown fences, no prose outside the JSON):
     "1d_support":    [{{"price": 0.0, "date_evidence": "YYYY-MM-DD", "registry_id": "CRxxx"}}],
     "4h_resistance": [{{"price": 0.0, "date_evidence": "YYYY-MM-DD", "registry_id": "CRxxx"}}],
     "4h_support":    [{{"price": 0.0, "date_evidence": "YYYY-MM-DD", "registry_id": "CRxxx"}}]
-  }},
-  "trade_decision": {{
-{_TRADE_TRAP_JSON}
-    "action":     "BUY|SELL|NO_TRADE",
-    "setup":      "B1|B2|B3|B4|S1|S2|S3|S4|T1|T2|M1|M2|NO_TRADE",
-    "entry":      <exact ₹ or null>,
-    "target":     <exact ₹ or null>,
-    "stop_loss":  <exact ₹ or null>,
-    "rejection":  "step + reason if NO_TRADE, else null"
   }},
   "data_integrity_check": "PASS — all prices sourced from {window_start} to {window_end} OHLCV; every level has a claim_registry id"
 }}

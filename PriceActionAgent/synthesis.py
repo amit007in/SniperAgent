@@ -69,6 +69,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from config import (
     ANTHROPIC_MODEL,
+    cached_system,
     API_RETRY_ATTEMPTS,
     API_RETRY_DELAY_S,
     INTER_SYMBOL_DELAY_S,
@@ -146,7 +147,7 @@ def call_claude(
     kwargs: dict = {
         "model":      ANTHROPIC_MODEL,
         "max_tokens": max_tokens,
-        "system":     system,
+        "system":     cached_system(system) if isinstance(system, str) else system,
         "messages":   messages,
     }
 
@@ -376,7 +377,7 @@ def _parse_json(text: str, symbol: str, stage: str) -> dict:
             from json_repair import repair_json
             partial = repair_json(candidate, return_objects=True)
             if isinstance(partial, dict):
-                for key in ("claim_registry", "pass1_audit", "trend_status", "final_narrative"):
+                for key in ("claim_registry", "trend_status", "final_narrative", "full_narrative"):
                     if key in partial and partial[key] and key not in result:
                         result[key] = partial[key]
         except Exception:

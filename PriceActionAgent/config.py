@@ -96,8 +96,27 @@ PA_DB = _pick_db(
 # ---------------------------------------------------------------------------
 ANTHROPIC_MODEL = os.environ.get(
     "PA_MODEL",
-    "claude-sonnet-4-6"           # balance: precision vs cost
+    "claude-haiku-4-5-20251001"   # cost-optimised; override with PA_MODEL=claude-sonnet-4-6
 )
+
+
+def cached_system(system_text: str) -> list[dict]:
+    """
+    Wrap a (large, static) system prompt as a cacheable content block.
+
+    Prompt caching charges cache *reads* at ~10% of the input rate, so the
+    static taxonomy/rules block is billed near-zero after the first call in a
+    5-minute window. The per-symbol OHLCV stays in `messages` and is NOT cached
+    (it varies every call), which is exactly what we want.
+
+    Requires the block to exceed the model's min cacheable size (2048 tokens for
+    Haiku) — the SniperAgent system prompt is well above that.
+    """
+    return [{
+        "type": "text",
+        "text": system_text,
+        "cache_control": {"type": "ephemeral"},
+    }]
 
 # Seed: use extended thinking for deeper multi-timeframe analysis
 SEED_USE_EXTENDED_THINKING = os.environ.get(
@@ -266,7 +285,7 @@ SETUP_PARAMS = {
     "rs_clear_space_pct":        float(os.environ.get("PA_RS_CLEAR_SPACE_PCT",      "2.0")),
     "poc_dead_zone_pct":         float(os.environ.get("PA_POC_DEAD_ZONE_PCT",       "0.5")),
     "min_setup_vol":             float(os.environ.get("PA_MIN_SETUP_VOL",           "1.0")),
-    "min_rr_ratio":              float(os.environ.get("PA_MIN_RR_RATIO",              "1.5")),
+    "min_rr_ratio":              float(os.environ.get("PA_MIN_RR_RATIO",              "1")),
     "block_deal_vol_multiple":   float(os.environ.get("PA_BLOCK_DEAL_VOL_MULT",     "3.0")),
     "block_deal_max_price_chg_pct": float(os.environ.get("PA_BLOCK_DEAL_MAX_CHG_PCT", "1.0")),
     "sr_zone_tolerance_pct":     float(os.environ.get("PA_SR_ZONE_TOLERANCE_PCT",   "0.5")),

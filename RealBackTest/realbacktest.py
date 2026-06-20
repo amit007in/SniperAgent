@@ -39,12 +39,28 @@ sys.path.insert(0, str(HERE))
 from rbt import config as C                                  # noqa: E402
 
 
+def _resolve_token() -> str:
+    token = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip().strip("'\"")
+    if token and token != "YOUR_UPSTOX_ACCESS_TOKEN":
+        return token
+    token_file = Path.home() / ".sniper_token"
+    if token_file.exists():
+        token = token_file.read_text().strip().strip("'\"")
+        if token:
+            return token
+    return ""
+
+
 def cmd_fetch(a):
+    if a.universe:
+        os.environ["RBT_UNIVERSE"] = a.universe
     from rbt.upstox_data import fetch_all
-    token = os.environ.get("UPSTOX_ACCESS_TOKEN", "")
+    token = _resolve_token()
+    tfs = a.timeframes.split(",") if a.timeframes else None
     fetch_all(token, a.start, a.end,
               symbols=a.symbols.split(",") if a.symbols else None,
-              include_options=not a.equity_only)
+              include_options=not a.equity_only,
+              timeframes=tfs)
 
 
 def cmd_audit(_a):
@@ -137,6 +153,11 @@ def main():
     f.add_argument("--equity-only", action="store_true",
                    help="stage 1: bars only, skip the options plane "
                         "(re-run without this flag to add options)")
+    f.add_argument("--universe", default=None,
+                   choices=["nse100", "nse500"],
+                   help="symbol universe file (default: nse100)")
+    f.add_argument("--timeframes", default=None,
+                   help="comma list: 30m,daily,weekly (default: all incl 1m)")
     f.set_defaults(fn=cmd_fetch)
 
     sub.add_parser("audit", help="cache coverage report").set_defaults(

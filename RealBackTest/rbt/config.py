@@ -6,11 +6,14 @@ is reproducible from this file + the cache DB.
 """
 import os
 import sqlite3
+import sys
 import tempfile
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent          # RealBackTest/
 REPO = BASE.parent                                     # SniperAgent/ (shared root)
+sys.path.insert(0, str(REPO))
+from shared_data import market_data_db, market_data_dir  # noqa: E402
 
 
 def _sqlite_ok(d):
@@ -51,9 +54,9 @@ def _pick(env, preferred, fallback_name):
 
 
 # Shared market data DB — accessible to SmartAgent, RealBackTest, PriceActionAgent.
-# Override: RBT_DATA_DIR=/path  (moves where marketdata.db lives)
-DATA_DIR = _pick("RBT_DATA_DIR", REPO / "Data", "rbt_data")
-CACHE_DB  = DATA_DIR / "marketdata.db"
+# Default: Data.nosync/marketdata.db (see shared_data.py).
+DATA_DIR = market_data_dir()
+CACHE_DB = market_data_db()
 
 # RealBackTest-specific runtime artifacts (run engine DBs and reports).
 # Override: RBT_DB_DIR=/path  RBT_REPORT_DIR=/path
@@ -87,18 +90,30 @@ _DEFAULT_UNIVERSE = [
 
 
 def _load_universe():
-    gen = REPO / "SmartAgent" / "universe_nse100.py"
-    if gen.exists():
-        ns = {}
-        exec(gen.read_text(), ns)
-        uni = [{"symbol": v["symbol"], "instrument_key": k,
-                "iv_cap": v["iv_cap"], "has_options": v["has_options"]}
-               for k, v in ns["UNIVERSE"].items()]
-        n_opt = sum(1 for u in uni if u["has_options"])
-        print(f"[CONFIG] universe_nse100.py loaded: {len(uni)} symbols "
-              f"({n_opt} options-fed)")
-        return uni
-    return _DEFAULT_UNIVERSE
+    """Load universe from SmartAgent/universe_*.py (env RBT_UNIVERSE selects file)."""
+    name = os.environ.get("RBT_UNIVERSE", "nse100").strip().lower()
+    candidates = {
+        "nse100": REPO / "SmartAgent" / "universe_nse100.py",
+        "nse500": REPO / "SmartAgent" / "universe_nse500.py",
+    }
+    gen = candidates.get(name) or Path(name)
+    if not gen.is_file():
+        print(f"[CONFIG] universe file not found: {gen} — using default 5-symbol")
+        return _DEFAULT_UNIVERSE
+    ns = {}
+    exec(gen.read_text(), ns)
+    uni = [{"symbol": v["symbol"], "instrument_key": k,
+            "iv_cap": v["iv_cap"], "has_options": v["has_options"]}
+           for k, v in ns["UNIVERSE"].items()]
+    n_opt = sum(1 for u in uni if u["has_options"])
+    print(f"[CONFIG] {gen.name} loaded: {len(uni)} symbols "
+          f"({n_opt} options-fed)")
+    return uni
+
+
+def get_universe():
+    """Fresh universe load (respects RBT_UNIVERSE env set after import)."""
+    return _load_universe()
 
 
 UNIVERSE = _load_universe()

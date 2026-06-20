@@ -19,7 +19,7 @@ NOTE: the expired-instruments family may require an Upstox Plus subscription
 unavailable, and the backtest degrades to structure-only for that symbol —
 identical to the live engine's chain-fetch-failure path.
 
-Everything lands in data/marketdata.db; every chunk is logged in fetch_log so
+Everything lands in Data.nosync/marketdata.db; every chunk is logged in fetch_log so
 an interrupted fetch resumes where it stopped.
 """
 import json
@@ -263,25 +263,62 @@ def last_thursdays(start, end):
 
 
 # -------------------------------------------------------------- fetch logic --
-def fetch_equity(client, cache, ucfg, start, end, log=print):
-    """1-min from start; 30-min/daily/weekly with pre-window lookback."""
+# Timeframe aliases accepted by fetch_equity / CLI --timeframes
+TIMEFRAME_ALIASES = {
+    "1m": ("minutes", "1"), "1min": ("minutes", "1"), "minutes/1": ("minutes", "1"),
+    "30m": ("minutes", "30"), "30min": ("minutes", "30"), "minutes/30": ("minutes", "30"),
+    "1d": ("days", "1"), "daily": ("days", "1"), "days/1": ("days", "1"),
+    "1w": ("weeks", "1"), "weekly": ("weeks", "1"), "weeks/1": ("weeks", "1"),
+}
+DEFAULT_EQUITY_TIMEFRAMES = ("1m", "30m", "1d", "1w")
+
+
+def _normalize_timeframes(timeframes):
+    """Return canonical keys in {1m, 30m, 1d, 1w}; None => all."""
+    canon_map = {
+        "1m": "1m", "1min": "1m", "minutes/1": "1m",
+        "30m": "30m", "30min": "30m", "minutes/30": "30m",
+        "1d": "1d", "daily": "1d", "days/1": "1d",
+        "1w": "1w", "weekly": "1w", "weeks/1": "1w",
+    }
+    if not timeframes:
+        return DEFAULT_EQUITY_TIMEFRAMES
+    out = []
+    for raw in timeframes:
+        key = raw.strip().lower().replace(" ", "")
+        if key not in TIMEFRAME_ALIASES:
+            raise ValueError(
+                f"unknown timeframe {raw!r}; use: 30m, daily, weekly (or 1m)")
+        canon = canon_map[key]
+        if canon not in out:
+            out.append(canon)
+    return tuple(out)
+
+
+def fetch_equity(client, cache, ucfg, start, end, log=print,
+                 timeframes=None):
+    """Equity candles; timeframes selects which of 1m/30m/daily/weekly to pull."""
     sym, key = ucfg["symbol"], ucfg["instrument_key"]
     ekey = quote(key, safe="")
-    plans = [
-        ("minutes", "1", start, end, month_chunks),
-        ("minutes", "30",
-         (date.fromisoformat(start)
-          - timedelta(days=C.PREFETCH_DAYS["30m"])).isoformat(),
-         end, quarter_chunks),
-        ("days", "1",
-         (date.fromisoformat(start)
-          - timedelta(days=C.PREFETCH_DAYS["daily"])).isoformat(),
-         end, None),
-        ("weeks", "1",
-         (date.fromisoformat(start)
-          - timedelta(days=C.PREFETCH_DAYS["weekly"])).isoformat(),
-         end, None),
-    ]
+    tf = _normalize_timeframes(timeframes)
+    plans = []
+    if "1m" in tf:
+        plans.append(("minutes", "1", start, end, month_chunks))
+    if "30m" in tf:
+        plans.append(("minutes", "30",
+                      (date.fromisoformat(start)
+                       - timedelta(days=C.PREFETCH_DAYS["30m"])).isoformat(),
+                      end, quarter_chunks))
+    if "1d" in tf:
+        plans.append(("days", "1",
+                      (date.fromisoformat(start)
+                       - timedelta(days=C.PREFETCH_DAYS["daily"])).isoformat(),
+                      end, None))
+    if "1w" in tf:
+        plans.append(("weeks", "1",
+                      (date.fromisoformat(start)
+                       - timedelta(days=C.PREFETCH_DAYS["weekly"])).isoformat(),
+                      end, None))
     for unit, interval, fr, to, chunker in plans:
         chunks = list(chunker(fr, to)) if chunker else [(fr, to)]
         for cfr, cto in chunks:
@@ -421,20 +458,23 @@ def preflight_token(client, log=print):
 
 
 def fetch_all(token, start, end, symbols=None, log=print,
-              include_options=True):
+              include_options=True, timeframes=None):
     """Orchestrate the full fetch. Resumable; safe to re-run.
     include_options=False stages an equity-only pull (fast) — re-run later
-    without the flag to add the options plane incrementally."""
+    without the flag to add the options plane incrementally.
+    timeframes: e.g. ('30m','1d','1w') — omit 1m to skip 1-minute bars."""
     client = UpstoxClient(token)
     preflight_token(client, log)
     cache = Cache()
-    uni = [u for u in C.UNIVERSE
+    uni = [u for u in C.get_universe()
            if symbols is None or u["symbol"] in symbols]
+    tf = _normalize_timeframes(timeframes)
+    log(f"[FETCH] timeframes: {', '.join(tf)}")
     options_ok = dict(cache.get_meta("options_ok", {}))
     for ucfg in uni:
         sym = ucfg["symbol"]
         log(f"[FETCH] {sym}: equity candles")
-        fetch_equity(client, cache, ucfg, start, end, log)
+        fetch_equity(client, cache, ucfg, start, end, log, timeframes=tf)
         if not ucfg["has_options"] or not include_options:
             options_ok.setdefault(sym, False)
             continue

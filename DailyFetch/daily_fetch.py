@@ -25,7 +25,7 @@ Token note:
 
 Output:
     Data/DailyFetch/logs/fetch_YYYY-MM-DD.log  — per-run structured log
-    Data/marketdata.db                           — updated in-place
+    Data.nosync/marketdata.db                  — updated in-place
 """
 import os
 import sys
@@ -40,6 +40,8 @@ from zoneinfo import ZoneInfo
 # ---------------------------------------------------------------------------
 HERE     = Path(__file__).resolve().parent          # DailyFetch/
 REPO     = HERE.parent                              # SniperAgent/
+sys.path.insert(0, str(REPO))
+from shared_data import market_data_db, market_data_dir  # noqa: E402
 RBT_DIR  = REPO / "RealBackTest"                   # realbacktest.py lives here
 LOG_DIR  = REPO / "Data" / "DailyFetch" / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -118,6 +120,7 @@ def run_fetch(token: str) -> int:
     """
     env = os.environ.copy()
     env["UPSTOX_ACCESS_TOKEN"] = token
+    env["RBT_DATA_DIR"] = str(market_data_dir())
 
     cmd = [sys.executable, str(RBT_DIR / "realbacktest.py"),
            "fetch", "--equity-only"]
@@ -149,7 +152,7 @@ def main() -> int:
     logging.info("=" * 60)
     logging.info(f"DailyFetch  {today_str}  {now_ist.strftime('%H:%M IST')}")
     logging.info(f"Log file  : {log_file}")
-    logging.info(f"marketdata: {REPO / 'Data' / 'marketdata.db'}")
+    logging.info(f"marketdata: {market_data_db()}")
     logging.info("=" * 60)
 
     # --- trading day gate ---------------------------------------------------

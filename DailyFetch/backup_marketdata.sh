@@ -3,12 +3,12 @@
 # Unlike `cp`, this is safe even while a fetch is running.
 #
 # Usage:
-#   bash backup_marketdata.sh               # backup to Data/backups/
+#   bash backup_marketdata.sh               # backup to Data.nosync/backups/
 #   bash backup_marketdata.sh /my/path.db   # backup to custom path
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$REPO/Data/marketdata.db"
-BACKUP_DIR="$REPO/Data/backups"
+SRC="$REPO/Data.nosync/marketdata.db"
+BACKUP_DIR="$REPO/Data.nosync/backups"
 DEST="${1:-$BACKUP_DIR/marketdata_$(date +%Y%m%d_%H%M%S).db}"
 
 mkdir -p "$(dirname "$DEST")"

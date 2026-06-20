@@ -4,6 +4,7 @@ PriceActionAgent — Central Configuration
 All tunable parameters in one place. Override via environment variables.
 """
 import os
+import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -11,22 +12,10 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 BASE_DIR   = Path(__file__).resolve().parent
 REPO_DIR   = BASE_DIR.parent                      # SniperAgent/ (shared root)
+sys.path.insert(0, str(REPO_DIR))
+from shared_data import market_data_db, market_data_dir  # noqa: E402
 
-
-def _data_dir() -> Path:
-    """
-    SQLite-safe data root. Prefer Data.nosync/ (local, WAL-safe) over synced Data/.
-    Override: PA_DATA_DIR=/path
-    """
-    if os.environ.get("PA_DATA_DIR"):
-        return Path(os.environ["PA_DATA_DIR"])
-    nosync = REPO_DIR / "Data.nosync"
-    if nosync.is_dir():
-        return nosync
-    return REPO_DIR / "Data"
-
-
-DATA_DIR   = _data_dir()                          # shared data root
+DATA_DIR   = market_data_dir()                    # shared data root (Data.nosync/)
 
 # Logs go under Data/PriceActionAgent/logs — no runtime files in source tree
 LOG_DIR    = Path(os.environ.get("PA_LOG_DIR",
@@ -34,10 +23,7 @@ LOG_DIR    = Path(os.environ.get("PA_LOG_DIR",
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Shared market data DB — written by RealBackTest fetch, read by all agents
-MARKET_DATA_DB = Path(os.environ.get(
-    "MARKET_DATA_DB",
-    str(DATA_DIR / "marketdata.db")
-))
+MARKET_DATA_DB = market_data_db()
 
 
 def _sqlite_ok(d: Path) -> bool:

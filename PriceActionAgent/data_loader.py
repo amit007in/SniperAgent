@@ -1,7 +1,7 @@
 """
 PriceActionAgent — Market Data Loader
 =======================================
-Reads OHLCV candles from RealBackTest/data/marketdata.db and prepares
+Reads OHLCV candles from Data.nosync/marketdata.db and prepares
 them for the price-action analysis pipeline.
 
 Key responsibilities
